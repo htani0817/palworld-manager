@@ -1,0 +1,3712 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Palworld Server Manager</title>
+<script>document.documentElement.dataset.theme = localStorage.getItem('pal_theme') || 'light';</script>
+<style>
+/* ══ デザイントークン（白基調・緑アクセント・濃紺サイドバー） ══════ */
+/* ライト（既定） */
+:root,
+:root[data-theme="light"] {
+  --bg:        #f5f6f7;
+  --panel:     #ffffff;
+  --panel-2:   #f7f8f9;
+  --border:    #e3e6ea;
+  --divider:   #edf0f2;
+  --text:      #1f2733;
+  --muted:     #5c6672;
+  --faint:     #595959;
+  --accent:          #15803d;
+  --accent-hover:    #166534;
+  --accent-contrast: #ffffff;
+  --accent-soft:     rgba(21,128,61,.09);
+  --input-border: #d3d8de;
+  --ok:   #15803d;
+  --warn: #b45309;
+  --err:  #b91c1c;
+  --shadow:     0 1px 2px rgba(16,24,40,.05);
+  --shadow-pop: 0 8px 24px rgba(16,24,40,.14);
+  --mono: Consolas, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --env-color: #d97706;
+  --logo: #22c55e;
+  /* サイドバー（ライト・ダーク共通で濃紺。デザイン上あえて反転させない） */
+  --side-bg:          #2b3441;
+  --side-text:        #c3cad3;
+  --side-text-dim:    #8b94a0;
+  --side-hover:       rgba(255,255,255,.06);
+  --side-border:      #3a4553;
+  --side-active-bg:   #22c55e;
+  --side-active-text: #0b2016;
+  /* チャート系列色（renderHistoryCharts が themeColor() 経由で読む） */
+  --chart-1: #15803d;
+  --chart-2: #b45309;
+  --chart-3: #7c3aed;
+  --chart-4: #b91c1c;
+  --chart-area: rgba(21,128,61,.14);
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+/* ダーク */
+:root[data-theme="dark"] {
+  --bg:        #131a24;
+  --panel:     #1b2430;
+  --panel-2:   #222d3b;
+  --border:    #333f4f;
+  --divider:   #2b3644;
+  --text:      #dde3ea;
+  --muted:     #9aa5b3;
+  --faint:     #7c8795;
+  --accent:          #4ade80;
+  --accent-hover:    #86efac;
+  --accent-contrast: #08170e;
+  --accent-soft:     rgba(74,222,128,.13);
+  --input-border: #465364;
+  --ok:   #4ade80;
+  --warn: #fbbf24;
+  --err:  #f87171;
+  --shadow: none;
+  --shadow-pop: 0 8px 24px rgba(0,0,0,.5);
+  --env-color: #b45309;
+  --logo: #22c55e;
+  --side-bg:          #161d27;
+  --side-text:        #b6bfca;
+  --side-text-dim:    #7c8795;
+  --side-hover:       rgba(255,255,255,.05);
+  --side-border:      #262f3c;
+  --side-active-bg:   #22c55e;
+  --side-active-text: #08170e;
+  --chart-1: #4ade80;
+  --chart-2: #fbbf24;
+  --chart-3: #a78bfa;
+  --chart-4: #f87171;
+  --chart-area: rgba(74,222,128,.16);
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+}
+
+/* ── リセット ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Amazon Ember", "Open Sans", "Segoe UI", "Hiragino Sans", "Noto Sans JP", -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+button { font-family: inherit; }
+input, textarea { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── ロゴマーク ─────────────────────────────────────────────────── */
+.mark {
+  width: 26px; height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--logo);
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* ── ボタン（AWS コンソール矩形スタイル） ───────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 20px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  transition: background .1s, border-color .1s, color .1s, box-shadow .1s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { border-color: var(--accent); color: var(--accent); background: var(--panel); }
+.btn-ghost:hover:not(:disabled) { background: var(--accent-soft); }
+.btn-ok   { border-color: var(--ok);   color: var(--ok);   background: var(--panel); }
+.btn-ok:hover:not(:disabled)   { background: color-mix(in srgb, var(--ok) 8%, var(--panel)); }
+.btn-warn { border-color: var(--warn); color: var(--warn); background: var(--panel); }
+.btn-warn:hover:not(:disabled) { background: color-mix(in srgb, var(--warn) 8%, var(--panel)); }
+.btn-err  { border-color: var(--err);  color: var(--err);  background: var(--panel); }
+.btn-err:hover:not(:disabled)  { background: color-mix(in srgb, var(--err) 8%, var(--panel)); }
+.btn-full { width: 100%; padding: 8px; }
+.btn-sm { padding: 3px 14px; font-size: 13px; }
+
+/* ── アプリシェル ───────────────────────────────────────────────── */
+#app {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#env-banner {
+  background: var(--env-color);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px;
+  padding: calc(4px + env(safe-area-inset-top)) max(4px, env(safe-area-inset-right)) 4px max(4px, env(safe-area-inset-left));
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#shutdown-banner {
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-align: center;
+  flex-shrink: 0;
+}
+#shutdown-banner.hidden { display: none; }
+#shutdown-banner.countdown { background: color-mix(in srgb, var(--warn) 30%, var(--panel)); color: var(--warn); }
+#shutdown-banner.reached   { background: color-mix(in srgb, var(--err) 30%, var(--panel));  color: var(--err); }
+
+/* ── メインカラム（サイドバー右側の縦積み） ─────────────────────── */
+#main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── コンテンツ側ヘッダー（スクロールしない固定行） ───────────────── */
+#content-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 32px;
+  padding-right: max(32px, env(safe-area-inset-right));
+  padding-left: max(32px, env(safe-area-inset-left));
+  min-height: 48px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--divider);
+  color: var(--text);
+  flex-shrink: 0;
+}
+.topnav-divider { width: 1px; height: 22px; background: var(--divider); flex-shrink: 0; }
+
+#menu-toggle {
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+#topnav-search-wrap { position: relative; flex: 0 1 340px; }
+#topnav-search {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-md);
+  padding: 5px 10px 5px 30px;
+  color: var(--text);
+  font-size: 13px;
+}
+#topnav-search::placeholder { color: var(--faint); }
+#topnav-search:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+.search-ic {
+  position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px;
+  stroke: var(--faint); fill: none; stroke-width: 2; stroke-linecap: round;
+}
+#search-results {
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  display: none;
+  overflow: hidden;
+  z-index: 1000;
+}
+#search-results.open { display: block; }
+.sr-item {
+  display: block; width: 100%; text-align: left;
+  padding: 8px 12px;
+  background: none; border: none;
+  color: var(--text); font-size: 13px;
+  cursor: pointer;
+}
+.sr-item:hover { background: var(--accent-soft); color: var(--accent); }
+.sr-empty { padding: 8px 12px; color: var(--faint); font-size: 12.5px; }
+
+.topnav-right { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.topnav-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: var(--r-md);
+  white-space: nowrap;
+}
+button.topnav-item { cursor: pointer; }
+button.topnav-item:hover { background: var(--accent-soft); color: var(--accent); }
+.topnav-item svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="light"] .icon-sun  { display: none; }
+:root[data-theme="dark"]  .icon-moon { display: none; }
+
+#layout { position: relative; display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+/* ── サイドナビゲーション（濃紺・全高・選択項目は緑ピル） ────────── */
+#sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--side-border);
+  background: var(--side-bg);
+  color: var(--side-text);
+  padding: 0 0 16px;
+  padding: 0 0 calc(16px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+  overflow-y: auto;
+  transition: margin-left .18s ease, transform .18s ease, visibility .18s ease;
+}
+#layout.sidebar-collapsed #sidebar {
+  margin-left: -240px;
+  visibility: hidden;
+  pointer-events: none;
+}
+#sidebar-backdrop { display: none; }
+/* 濃紺の上では緑のフォーカスリングが沈むので白にする */
+#sidebar :focus-visible { outline-color: #fff; }
+
+.side-brand {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 48px;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--side-border);
+  margin-bottom: 8px;
+  font-size: 14px; font-weight: 700; color: #fff;
+  white-space: nowrap;
+  min-width: 0;
+}
+.side-brand .mark { width: 24px; height: 24px; font-size: 13px; }
+.side-brand-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+#sidebar-close {
+  display: none; /* デスクトップでは非表示 */
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border: none; background: transparent; cursor: pointer;
+  color: rgba(255,255,255,.7); border-radius: 6px;
+  align-items: center; justify-content: center;
+  padding: 0;
+}
+#sidebar-close:hover { background: rgba(255,255,255,.12); color: #fff; }
+#sidebar-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--side-text-dim);
+  padding: 12px 16px 4px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 16px);
+  margin: 1px 8px;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--r-md);
+  background: none;
+  font-size: 14px;
+  color: var(--side-text);
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.nav-item svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.nav-item:hover { color: #fff; background: var(--side-hover); text-decoration: none; }
+.nav-item.active {
+  color: var(--side-active-text);
+  font-weight: 700;
+  background: var(--side-active-bg);
+}
+.nav-item.active:hover { color: var(--side-active-text); background: var(--side-active-bg); }
+
+/* ── コンテンツ ─────────────────────────────────────────────────── */
+#content {
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 32px 48px;
+  padding: 16px max(32px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left));
+  background: var(--bg);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* パンくずリスト */
+#breadcrumbs {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px;
+  color: var(--faint);
+  margin-bottom: 14px;
+}
+#breadcrumbs a { color: var(--accent); text-decoration: none; cursor: pointer; }
+#breadcrumbs a:hover { color: var(--accent-hover); text-decoration: underline; }
+.bc-sep { color: var(--faint); }
+
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--divider);
+}
+.page-head h2 { font-size: 20px; font-weight: 700; }
+.page-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.updated-at { font-size: 12px; color: var(--faint); }
+
+/* ── コンテナ（AWS コンソール container 風） ─────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.card-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card-head .card-title { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+.divider + .card-title { border-bottom: none; padding-bottom: 0; }
+.note { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.modal .note { padding: 0 20px 8px; }
+
+/* ── メトリクス（key/value 大数字） ─────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.resource-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.metric-tile { padding: 2px 0; }
+.m-label { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+.m-value { font-size: 28px; font-weight: 700; line-height: 1.3; }
+.m-unit { font-size: 12px; color: var(--faint); }
+
+/* ── KPI カード（ダッシュボード最上段） ────────────────────────── */
+.kpi-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.kpi-card { margin-bottom: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.kpi-label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.kpi-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-width: 0; }
+.kpi-value { font-size: 26px; font-weight: 700; line-height: 1.25; white-space: nowrap; }
+.kpi-value.ok { color: var(--ok); }
+.kpi-value.off { color: var(--err); }
+.kpi-value.unknown { color: var(--faint); }
+.kpi-value-sep { color: var(--faint); font-weight: 400; margin: 0 4px; }
+.kpi-sub { font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* スパークライン（軸・凡例なしの小型トレンド線） */
+.sparkline { width: 68px; height: 34px; flex-shrink: 0; display: block; }
+.spark-line  { fill: none; stroke: var(--chart-1); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.spark-area  { fill: var(--chart-area); stroke: none; }
+.spark-dot   { fill: var(--chart-1); }
+.spark-empty { stroke: var(--divider); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+
+/* ── ダッシュボードの 2 カラム行 ────────────────────────────────── */
+.dash-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.dash-2col-wide { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(240px, .8fr); gap: 16px; }
+
+/* アイコンのみのボタン（更新ボタンなど） */
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--panel); color: var(--muted); cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.btn-icon:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.btn-icon svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── クイックアクション ─────────────────────────────────────────── */
+.quick-actions { display: flex; flex-direction: column; gap: 8px; }
+.btn-quick {
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 500;
+}
+.btn-quick:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.btn-quick svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.quick-notify { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider); font-size: 13px; color: var(--muted); }
+
+/* ── イベントログ（ダッシュボード内） ───────────────────────────── */
+.evt-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 10px; }
+.evt-status { font-size: 12.5px; color: var(--muted); }
+#evt-search { width: 180px; }
+#evt-table-wrap { max-height: 340px; overflow-y: auto; }
+#evt-tbody td { vertical-align: top; }
+.evt-time { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.evt-time.estimated { font-style: italic; }
+.evt-msg { word-break: break-word; }
+.evt-empty { color: var(--faint); font-size: 13px; padding: 14px 16px; }
+.lv { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.lv-info  { color: #1d5fbf; background: rgba(29,95,191,.12); }
+.lv-warn  { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--panel)); }
+.lv-error { color: var(--err);  background: color-mix(in srgb, var(--err) 12%, var(--panel)); }
+.lv-debug { color: var(--faint); background: var(--panel-2); }
+:root[data-theme="dark"] .lv-info { color: #7cb3f5; background: rgba(124,179,245,.14); }
+
+/* ── 情報グリッド ───────────────────────────────────────────────── */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.info-item .ik { font-size: 12px; color: var(--faint); margin-bottom: 2px; }
+.info-item .iv { font-size: 14px; word-break: break-all; }
+
+/* ── ステータスインジケーター（EC2 風） ─────────────────────────── */
+.status-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-on  { background: var(--ok); }
+.dot-off { background: var(--err); }
+.dot-idle { background: var(--faint); }
+.dot-pulse { background: var(--warn); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── テーブル（AWS コンソール table 風） ────────────────────────── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  padding: 8px 16px;
+  text-align: left;
+  background: var(--panel-2);
+  border-top: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+tbody td { padding: 10px 16px; border-bottom: 1px solid var(--divider); font-size: 14px; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--accent-soft); }
+.num { font-family: var(--mono); }
+
+/* ── 入力 ───────────────────────────────────────────────────────── */
+.input {
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-md);
+  padding: 5px 12px;
+  color: var(--text);
+  font-size: 14px;
+  max-width: 100%;
+}
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.input-full { width: 100%; }
+.input-sm { padding: 4px 8px; font-size: 12.5px; }
+textarea.input { resize: vertical; }
+
+/* ── 操作カード ─────────────────────────────────────────────────── */
+.ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.op-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.op-name { font-size: 14px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid var(--divider); margin-bottom: 2px; }
+.op-desc { font-size: 13px; color: var(--muted); line-height: 1.6; flex: 1; }
+.op-card .btn { align-self: flex-start; }
+
+/* ── コマンド ───────────────────────────────────────────────────── */
+.cmd-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+  min-width: 0;
+}
+.cmd-meta { flex: 1; min-width: 0; }
+.cmd-name { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); }
+.cmd-desc { font-size: 13px; color: var(--muted); }
+.cmd-form { display: flex; flex-direction: column; gap: 6px; width: 260px; flex-shrink: 0; }
+.cmd-form input { width: 100%; }
+.cmd-result {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--divider);
+  border-left: 3px solid var(--divider);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-family: var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+}
+.cmd-result.ok  { border-left-color: var(--ok); }
+.cmd-result.err { border-left-color: var(--err); color: var(--err); }
+
+/* ── スケジューラ ───────────────────────────────────────────────── */
+.hour-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+  max-width: 560px;
+}
+.hour-btn {
+  padding: 5px 0;
+  font-size: 12.5px;
+  font-family: var(--mono);
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .1s, color .1s, background .1s;
+}
+.hour-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.hour-btn.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.schedule-item {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 6px;
+  box-shadow: var(--shadow);
+}
+.s-label { font-weight: 700; flex: 1; font-size: 13.5px; }
+.s-type {
+  font-size: 11px; font-weight: 700;
+  padding: 0 8px;
+  line-height: 18px;
+  border-radius: var(--r-sm);
+  background: var(--faint);
+  color: var(--panel);
+}
+.s-status { font-size: 11px; font-weight: 700; padding: 0 8px; line-height: 18px; border-radius: var(--r-sm); }
+.s-status.failed { background: var(--err); color: #fff; }
+.s-status.running { background: var(--warn); color: #fff; }
+.s-cron { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.s-next { font-size: 12px; color: var(--ok); font-family: var(--mono); }
+.divider { border: none; border-top: 1px solid var(--divider); margin: 20px 0; }
+
+/* ── ログ（ターミナルは常時ダーク） ─────────────────────────────── */
+.log-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+#log-container {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  height: 480px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.ll { white-space: pre-wrap; word-break: break-all; color: #8d99a8; }
+.ll.err  { color: #eb6f6f; }
+.ll.warn { color: #d4a72c; }
+.ll.sys  { color: #539fe5; }
+
+/* ── INI ────────────────────────────────────────────────────────── */
+.editable { cursor: pointer; padding: 1px 6px; border-radius: var(--r-sm); }
+.editable:hover { background: var(--accent-soft); color: var(--accent); }
+.secret-tag { font-size: 12px; color: var(--faint); font-style: italic; }
+.ini-notice {
+  padding: 10px 14px;
+  border: 1px solid var(--warn);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn) 6%, var(--panel));
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: none;
+}
+
+/* ── ワールド状況・履歴 ─────────────────────────────────────────── */
+.world-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .7fr); gap: 16px; }
+.world-map-wrap {
+  min-height: 0;
+  aspect-ratio: 8 / 5;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background:
+    linear-gradient(var(--divider) 1px, transparent 1px),
+    linear-gradient(90deg, var(--divider) 1px, transparent 1px),
+    var(--panel-2);
+  background-size: 10% 10%;
+  overflow: hidden;
+}
+/* マップ画像表示時は格子背景を消す */
+.world-map-wrap.has-image { background: var(--panel-2); }
+#world-map { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; }
+.world-map-empty { fill: var(--faint); font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.status-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.status-tag.same, .status-tag.completed { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--panel)); }
+.status-tag.pending, .status-tag.countdown, .status-tag.saving, .status-tag.restarting, .status-tag.updating, .status-tag.verifying { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); }
+.status-tag.failed, .status-tag.file-only, .status-tag.runtime-only { color: var(--err); background: color-mix(in srgb, var(--err) 10%, var(--panel)); }
+.status-tag.idle, .status-tag.cancelled, .status-tag.skipped, .status-tag.checking { color: var(--faint); background: var(--panel-2); }
+.history-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart-box { min-width: 0; }
+.chart-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.history-chart { display: block; width: 100%; height: 190px; border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--panel-2); touch-action: pan-y; }
+.chart-axis { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-gridline { stroke: var(--divider); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-label { fill: var(--faint); font-size: 10px; font-family: var(--mono); }
+/* チャートホバー（CloudWatch メトリクス風のガイド線とツールチップ） */
+.chart-hover-line { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.chart-hover-dot { stroke: var(--panel); stroke-width: 1.5; }
+.chart-tooltip {
+  position: fixed; z-index: 300; display: none; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  padding: 8px 10px; font-size: 12px; color: var(--text); white-space: nowrap;
+}
+.chart-tooltip-time { font-weight: 700; margin-bottom: 4px; font-family: var(--mono); font-size: 11px; }
+.chart-tooltip-row { display: flex; align-items: center; gap: 6px; }
+.chart-tip-chip { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.chart-tip-value { margin-left: auto; font-family: var(--mono); padding-left: 10px; }
+.maintenance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.maintenance-grid .full { grid-column: 1 / -1; }
+.maintenance-grid .field > label { display: block; margin-bottom: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.maintenance-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.maintenance-status { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--divider); border-radius: var(--r-md); background: var(--panel-2); }
+.maintenance-status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.maintenance-detail { margin-top: 6px; color: var(--muted); font-size: 12.5px; white-space: pre-wrap; }
+
+/* ── モーダル（AWS コンソール modal 風） ────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(16,24,40,.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  z-index: 900;
+}
+.overlay.hidden { display: none; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 0;
+  width: 440px;
+  max-width: 95vw;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  box-shadow: var(--shadow-pop);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.modal h3 {
+  font-size: 16px; font-weight: 700;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--divider);
+  margin-bottom: 0;
+}
+.modal .modal-body { font-size: 13.5px; color: var(--muted); padding: 16px 20px 0; line-height: 1.7; margin-bottom: 0; }
+.modal .field { padding: 10px 20px 0; margin-bottom: 0; }
+.modal-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 14px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--divider);
+  background: var(--panel-2);
+}
+
+/* ── フラッシュバー（AWS コンソール flashbar 風） ───────────────── */
+#toast-wrap { position: fixed; bottom: 20px; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); right: max(20px, env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 8px; z-index: 9999; min-width: 320px; max-width: 420px; }
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  border-left: 4px solid var(--accent);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.toast-icon { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+.toast-msg { flex: 1; line-height: 1.5; }
+.toast.success { border-left-color: var(--ok); }
+.toast.success .toast-icon { color: var(--ok); }
+.toast.error   { border-left-color: var(--err); }
+.toast.error   .toast-icon { color: var(--err); }
+.toast.info    { border-left-color: var(--accent); }
+.toast.info    .toast-icon { color: var(--accent); }
+
+label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+
+@media (max-width: 960px) {
+  #topnav-search-wrap, #region-item, .topnav-divider { display: none; }
+  .resource-grid { grid-template-columns: minmax(0, 1fr); }
+  .page-head { align-items: flex-start; flex-wrap: wrap; }
+  .page-head .right { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .world-layout, .history-chart-grid { grid-template-columns: minmax(0, 1fr); }
+  .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dash-2col, .dash-2col-wide { grid-template-columns: minmax(0, 1fr); }
+  #content-topbar { padding-left: 16px; padding-right: 16px; }
+}
+@media (max-width: 700px) {
+  #content-topbar {
+    min-height: 52px;
+    gap: 8px;
+    padding: 6px 12px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+  #menu-toggle, #theme-toggle {
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    padding: 0 !important;
+  }
+  .side-brand { gap: 8px; font-size: 13px; }
+  .side-brand-text { max-width: 48vw; }
+  #sidebar-close { display: flex; }
+  #layout.sidebar-collapsed #sidebar { margin-left: 0; }
+  #sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 800;
+    display: block;
+    width: min(82vw, 280px);
+    max-width: calc(100% - 48px);
+    margin-left: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    box-shadow: var(--shadow-pop);
+    transform: translateX(-100%);
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #layout.sidebar-open #sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+  }
+  #sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 700;
+    display: block;
+    border: 0;
+    background: rgba(0, 28, 36, .5);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    touch-action: none;
+    transition: opacity .18s ease, visibility .18s ease;
+  }
+  #layout.sidebar-open #sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .nav-item { min-height: 44px; padding-top: 9px; padding-bottom: 9px; }
+  #content {
+    padding: 12px 12px 28px;
+    padding: 12px max(12px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  #breadcrumbs { margin-bottom: 10px; }
+  #breadcrumbs #bc-home, #breadcrumbs .bc-sep { display: none; }
+  .page-head { align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding-bottom: 10px; }
+  .page-head h2 { min-width: 0; font-size: 19px; overflow-wrap: anywhere; }
+  .page-head .right { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .card { padding: 14px; margin-bottom: 12px; }
+  .resource-grid { grid-template-columns: minmax(0, 1fr); }
+  .info-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .m-value { font-size: 25px; }
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .kpi-card { padding: 12px 14px; }
+  .kpi-value { font-size: 22px; }
+  .sparkline { width: 52px; height: 28px; }
+  .dash-2col, .dash-2col-wide { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .dash-2col { margin-bottom: 12px; }
+  .evt-toolbar { width: 100%; gap: 6px; }
+  .evt-toolbar .input-sm, .evt-toolbar .btn { flex: 1 1 auto; min-width: 0; }
+  #evt-search { width: auto; flex: 1 1 100%; }
+  #evt-table-wrap { max-height: 55vh; max-height: 55dvh; }
+  .ops-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .maintenance-grid { grid-template-columns: minmax(0, 1fr); }
+  .maintenance-grid .full { grid-column: auto; }
+  .op-card { padding: 14px; }
+  #world-map { height: auto; }
+  .hour-grid { grid-template-columns: repeat(4, 1fr); }
+  .cmd-item { flex-direction: column; }
+  .cmd-form { width: 100%; }
+  #sch-label, #sch-once-dt, #sch-once-label, #sch-cron, #sch-cron-label { width: 100% !important; }
+  .schedule-item { gap: 8px; padding: 10px 12px; }
+  .tbl-wrap { margin-right: -2px; -webkit-overflow-scrolling: touch; }
+  .btn { min-height: 40px; }
+  .input { min-height: 42px; }
+  .overlay {
+    padding: 12px;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .modal { width: 100%; max-width: none; }
+  .modal-actions { flex-wrap: wrap; padding: 12px 14px; }
+  #toast-wrap {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    min-width: 0;
+    max-width: none;
+  }
+  #log-container {
+    height: 55vh;
+    height: 55dvh;
+    min-height: 260px;
+    padding: 10px 12px;
+  }
+}
+@media (hover: none) and (pointer: coarse) {
+  #menu-toggle, #theme-toggle, .btn-icon { width: 40px; height: 40px; justify-content: center; padding: 0 !important; }
+  .nav-item { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+  .btn { min-height: 40px; }
+  .btn-quick { min-height: 44px; }
+  .input { min-height: 42px; }
+  /* ツールチップ的な小型コントロールは 36px 程度に留めて詰まりを避ける */
+  .input-sm { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── アプリ ──────────────────────────────────────────────────── -->
+<div id="app">
+  <div id="env-banner"></div>
+
+  <div id="layout">
+    <nav id="sidebar" aria-label="メインメニュー">
+      <div class="side-brand">
+        <span class="mark">P</span>
+        <span class="side-brand-text">Palworld Server Manager</span>
+        <button id="sidebar-close" type="button" aria-label="メニューを閉じる">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="nav-label">モニタリング</div>
+      <button class="nav-item active" data-tab="dashboard" type="button" aria-current="page">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        ダッシュボード
+      </button>
+      <button class="nav-item" data-tab="players" type="button">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        プレイヤー
+      </button>
+      <button class="nav-item" data-tab="ranking" type="button">
+        <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 3h12v6a6 6 0 0 1-12 0z"/><path d="M6 5H3v2a4 4 0 0 0 4 4"/><path d="M18 5h3v2a4 4 0 0 1-4 4"/></svg>
+        ランキング
+      </button>
+      <button class="nav-item" data-tab="world" type="button">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18"/><path d="M12 3a15 15 0 0 0 0 18"/></svg>
+        ワールド状況
+      </button>
+      <button class="nav-item" data-tab="history" type="button">
+        <svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>
+        履歴
+      </button>
+      <div class="nav-label">管理</div>
+      <button class="nav-item" data-tab="commands" type="button">
+        <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        コマンド
+      </button>
+      <button class="nav-item" data-tab="ini" type="button">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        設定ファイル
+      </button>
+      <button class="nav-item" data-tab="operations" type="button">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        サーバー操作
+      </button>
+      <button class="nav-item" data-tab="schedule" type="button">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        スケジューラ
+      </button>
+      <button class="nav-item" data-tab="logs" type="button">
+        <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        ログ
+      </button>
+    </nav>
+    <button id="sidebar-backdrop" type="button" tabindex="-1" aria-label="メニューを閉じる" aria-hidden="true"></button>
+
+    <!-- #content-topbar は #content の外に置く。
+         ドロワーを開くと #content に inert が付くため、中に入れると
+         ハンバーガー自身が操作不能になってしまう。 -->
+    <div id="main-col">
+      <div id="content-topbar">
+        <button class="topnav-item" id="menu-toggle" type="button" title="メニューを閉じる" aria-label="メニューを閉じる" aria-controls="sidebar" aria-expanded="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div id="topnav-search-wrap">
+          <svg class="search-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+          <input id="topnav-search" type="text" placeholder="機能を検索" autocomplete="off">
+          <div id="search-results"></div>
+        </div>
+        <div class="topnav-right">
+          <button class="topnav-item" id="theme-toggle" type="button" title="テーマ切替" style="padding:5px 8px;">
+            <svg class="icon-moon" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>
+          </button>
+          <div class="topnav-divider"></div>
+          <span class="topnav-item" id="region-item" title="staging">検証環境<svg style="width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2.4;" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+      </div>
+
+    <div id="content">
+
+      <div id="shutdown-banner" class="hidden"></div>
+
+      <div id="breadcrumbs"><a id="bc-home" href="#">Palworld Server Manager</a><span class="bc-sep">/</span><span id="bc-current">ダッシュボード</span></div>
+
+      <!-- ダッシュボード -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="page-head">
+          <h2>ダッシュボード</h2>
+          <div class="right">
+            <span class="updated-at">最終更新: <span id="dashboard-updated">–</span></span>
+            <button class="btn-icon" id="dashboard-reload" type="button" title="今すぐ更新" aria-label="ダッシュボードを今すぐ更新">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 行1: KPI カード -->
+        <div class="kpi-row">
+          <div class="card kpi-card">
+            <div class="kpi-label"><span class="dot dot-idle" id="svc-dot"></span>稼働状況</div>
+            <div class="kpi-value" id="svc-label">確認中...</div>
+            <div class="kpi-sub" id="kpi-uptime-sub">稼働時間 –</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-label">プレイヤー数</div>
+            <div class="kpi-value"><span id="m-players">–</span><span class="kpi-value-sep">/</span><span id="m-maxplayers">–</span></div>
+            <div class="kpi-sub" id="kpi-players-sub">接続中 –　最大 –</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-label">CPU使用率</div>
+            <div class="kpi-main">
+              <div class="kpi-value" id="kpi-cpu-value">–</div>
+              <svg class="sparkline" id="spark-cpu" viewBox="0 0 120 40" preserveAspectRatio="none" role="img" aria-label="CPU使用率の推移"></svg>
+            </div>
+            <div class="kpi-sub" id="kpi-cpu-sub">–</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-label">メモリ使用率</div>
+            <div class="kpi-main">
+              <div class="kpi-value" id="kpi-mem-value">–</div>
+              <svg class="sparkline" id="spark-mem" viewBox="0 0 120 40" preserveAspectRatio="none" role="img" aria-label="メモリ使用率の推移"></svg>
+            </div>
+            <div class="kpi-sub" id="kpi-mem-sub">–</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-label">ディスク使用率</div>
+            <div class="kpi-main">
+              <div class="kpi-value" id="kpi-disk-value">–</div>
+              <svg class="sparkline" id="spark-disk" viewBox="0 0 120 40" preserveAspectRatio="none" role="img" aria-label="ディスク使用率の推移"></svg>
+            </div>
+            <div class="kpi-sub" id="kpi-disk-sub">–</div>
+          </div>
+        </div>
+
+        <!-- 行2: 推移グラフ + サーバー情報 -->
+        <div class="dash-2col">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-head">
+              <span class="card-title">プレイヤー数の推移</span>
+              <select class="input input-sm" id="dash-chart-hours" aria-label="推移グラフの表示期間">
+                <option value="1">1時間</option>
+                <option value="6">6時間</option>
+                <option value="24" selected>24時間</option>
+                <option value="168">7日</option>
+              </select>
+            </div>
+            <svg class="history-chart" id="dash-chart-players" viewBox="0 0 600 190" role="img" aria-label="ダッシュボードのプレイヤー数推移"></svg>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">サーバー情報</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="ik">サーバー名</div><div class="iv" id="i-name">–</div></div>
+              <div class="info-item"><div class="ik">起動日時</div><div class="iv" id="i-booted">–</div></div>
+              <div class="info-item"><div class="ik">アドレス</div><div class="iv num" id="i-address">–</div></div>
+              <div class="info-item"><div class="ik">プロセスID</div><div class="iv num" id="i-pid">–</div></div>
+              <div class="info-item"><div class="ik">バージョン</div><div class="iv" id="i-version">–</div></div>
+              <div class="info-item"><div class="ik">最大プレイヤー数</div><div class="iv num" id="i-maxplayers">–</div></div>
+              <div class="info-item"><div class="ik">サーバーFPS</div><div class="iv num" id="m-fps">–</div></div>
+              <div class="info-item"><div class="ik">フレーム時間</div><div class="iv num" id="m-frametime">–</div></div>
+              <div class="info-item"><div class="ik">ゲーム内日数</div><div class="iv num" id="m-days">–</div></div>
+              <div class="info-item"><div class="ik">ベースキャンプ</div><div class="iv num" id="m-basecamps">–</div></div>
+              <div class="info-item"><div class="ik">説明</div><div class="iv" id="i-desc">–</div></div>
+              <div class="info-item"><div class="ik">World GUID</div><div class="iv num" id="i-guid" style="font-size:11px;color:var(--faint);">–</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 行3: イベントログ + クイックアクション -->
+        <div class="dash-2col-wide">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-head">
+              <span class="card-title">イベントログ</span>
+              <div class="evt-status status-chip"><span class="dot dot-off" id="evt-dot"></span><span id="evt-status-txt">未接続</span></div>
+            </div>
+            <div class="evt-toolbar">
+              <select class="input input-sm" id="evt-level" aria-label="レベルで絞り込み">
+                <option value="">レベル: すべて</option>
+                <option value="ERROR">ERROR</option>
+                <option value="WARN">WARN</option>
+                <option value="INFO">INFO</option>
+                <option value="DEBUG">DEBUG</option>
+              </select>
+              <select class="input input-sm" id="evt-category" aria-label="カテゴリで絞り込み">
+                <option value="">カテゴリ: すべて</option>
+              </select>
+              <input class="input input-sm" id="evt-search" type="search" placeholder="メッセージを検索" aria-label="メッセージを検索" autocomplete="off">
+              <button class="btn btn-ghost btn-sm" id="evt-clear" type="button">クリア</button>
+              <button class="btn btn-ghost btn-sm" id="evt-toggle-all" type="button" aria-pressed="false">すべて表示</button>
+            </div>
+            <div id="evt-table-wrap" class="tbl-wrap">
+              <table>
+                <thead><tr><th>日時</th><th>レベル</th><th>カテゴリ</th><th>メッセージ</th></tr></thead>
+                <tbody id="evt-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">クイックアクション</div>
+            <div class="quick-actions">
+              <button class="btn btn-quick" data-svc="start" data-label="起動" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polygon points="6 4 20 12 6 20"/></svg>
+                サーバーを起動
+              </button>
+              <button class="btn btn-quick" data-svc="restart" data-label="再起動" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"/><path d="M20.5 15A9 9 0 1 1 18.4 5.6L23 10"/></svg>
+                サーバーを再起動
+              </button>
+              <button class="btn btn-quick" data-svc="stop" data-label="停止" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                サーバーを停止
+              </button>
+              <button class="btn btn-quick" id="quick-save" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                ワールドを保存
+              </button>
+              <button class="btn btn-quick" id="quick-announce" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>
+                アナウンスを送信
+              </button>
+            </div>
+            <div class="status-chip quick-notify">
+              <span class="dot dot-idle" id="discord-dot"></span>
+              <span id="discord-label">Discord通知: 確認中</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 行4: ホスト / Palworld のスペック情報 -->
+        <div class="resource-grid" style="margin-top:16px;">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">ホストサーバー情報</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="ik">OS</div><div class="iv" id="host-os">–</div></div>
+              <div class="info-item"><div class="ik">CPU</div><div class="iv" id="host-cpu">–</div></div>
+              <div class="info-item"><div class="ik">メモリ</div><div class="iv" id="host-memory">–</div></div>
+              <div class="info-item"><div class="ik">ディスク</div><div class="iv" id="host-disk">–</div></div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Palworld サーバー情報</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="ik">プロセスCPU（マシン全体比）</div><div class="iv num" id="pal-cpu">–</div></div>
+              <div class="info-item"><div class="ik">プロセスメモリ</div><div class="iv num" id="pal-mem">–</div></div>
+              <div class="info-item"><div class="ik">システムCPU</div><div class="iv num" id="sys-cpu">–</div></div>
+              <div class="info-item"><div class="ik">システムメモリ</div><div class="iv num" id="sys-mem">–</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- プレイヤー -->
+      <div class="tab-panel" id="tab-players">
+        <div class="page-head">
+          <h2>プレイヤー</h2>
+          <div class="right"><span class="updated-at">自動更新 5秒</span></div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>名前</th><th>アカウント</th><th>Lv</th><th>Ping</th><th>位置 X/Y</th><th>建築物</th><th>IP</th><th>操作</th></tr></thead>
+              <tbody id="players-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ランキング -->
+      <div class="tab-panel" id="tab-ranking">
+        <div class="page-head">
+          <h2>ランキング</h2>
+          <div class="right">
+            <select class="input" id="ranking-metric" style="width:auto;">
+              <option value="total_seconds">累計プレイ時間</option>
+              <option value="max_level">最高レベル</option>
+              <option value="login_days">ログイン日数</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="ranking-csv-export" type="button">CSV出力</button>
+            <span class="updated-at">自動更新 10秒</span>
+            <span class="updated-at" id="ranking-updated"></span>
+          </div>
+        </div>
+        <div class="card">
+          <p class="note" style="margin-bottom:12px;">プレイ時間は 10 秒間隔サンプリングによる近似値です。Manager 停止中は計上されません。データはサーバー上に保存され、Manager を再起動しても続きから計測されます。</p>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>順位</th><th>名前</th><th>アカウント</th><th>累計プレイ時間</th><th>最高Lv</th><th>ログイン日数</th><th>最終ログイン</th><th>状態</th></tr></thead>
+              <tbody id="ranking-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ワールド状況 -->
+      <div class="tab-panel" id="tab-world">
+        <div class="page-head">
+          <h2>ワールド状況</h2>
+          <div class="right">
+            <select class="input" id="world-map-filter" aria-label="マップに表示するActor種別">
+              <option value="all">すべて</option>
+              <option value="Player">プレイヤー</option>
+              <option value="OtomoPal">手持ちパル</option>
+              <option value="BaseCampPal">拠点パル</option>
+              <option value="WildPal">野生パル</option>
+              <option value="NPC">NPC</option>
+              <option value="PalBox">PalBox</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="world-refresh" type="button">更新</button>
+            <span class="updated-at" id="world-updated"></span>
+          </div>
+        </div>
+        <div class="ini-notice" id="world-notice"></div>
+        <div class="card">
+          <div class="metrics-grid">
+            <div class="metric-tile"><div class="m-label">プレイヤー</div><div class="m-value" id="world-count-player">–</div></div>
+            <div class="metric-tile"><div class="m-label">手持ちパル</div><div class="m-value" id="world-count-otomo">–</div></div>
+            <div class="metric-tile"><div class="m-label">拠点パル</div><div class="m-value" id="world-count-base">–</div></div>
+            <div class="metric-tile"><div class="m-label">野生パル</div><div class="m-value" id="world-count-wild">–</div></div>
+            <div class="metric-tile"><div class="m-label">NPC</div><div class="m-value" id="world-count-npc">–</div></div>
+            <div class="metric-tile"><div class="m-label">PalBox</div><div class="m-value" id="world-count-palbox">–</div></div>
+            <div class="metric-tile"><div class="m-label">ギルド</div><div class="m-value" id="world-count-guild">–</div></div>
+            <div class="metric-tile"><div class="m-label">平均FPS</div><div class="m-value" id="world-average-fps">–</div></div>
+          </div>
+        </div>
+        <div class="world-layout">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">座標マップ</span>
+              <span class="updated-at" id="world-point-note"></span>
+            </div>
+            <div class="world-map-wrap" id="world-map-wrap">
+              <svg id="world-map" viewBox="0 0 800 500" role="img" aria-label="ワールドActorのXY座標マップ"></svg>
+            </div>
+            <div class="legend" id="world-legend"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">確認が必要なActor</div>
+            <p class="note" id="world-warning-note" style="margin-bottom:10px;">HP低下、HP 0、非アクティブ状態を候補として表示します。ゲーム内の実際の状態と照らし合わせて確認してください。</p>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>種別</th><th>名前</th><th>理由</th><th>HP</th></tr></thead>
+                <tbody id="world-warning-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">ギルド・拠点集計</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>ギルド</th><th>プレイヤー</th><th>手持ちパル</th><th>拠点パル</th><th>PalBox</th></tr></thead>
+              <tbody id="world-guild-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 履歴 -->
+      <div class="tab-panel" id="tab-history">
+        <div class="page-head">
+          <h2>履歴</h2>
+          <div class="right">
+            <span class="note">グラフ・集計:</span>
+            <select class="input" id="history-hours" aria-label="グラフと集計の表示期間">
+              <option value="1">1時間</option>
+              <option value="6">6時間</option>
+              <option value="24" selected>24時間</option>
+              <option value="168">7日</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="history-refresh" type="button">更新</button>
+            <span class="updated-at" id="history-updated"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="metrics-grid">
+            <div class="metric-tile"><div class="m-label">平均FPS</div><div class="m-value" id="history-avg-fps">–</div></div>
+            <div class="metric-tile"><div class="m-label">平均フレーム時間</div><div class="m-value" id="history-avg-frametime">–</div><div class="m-unit">ms</div></div>
+            <div class="metric-tile"><div class="m-label">ピーク人数</div><div class="m-value" id="history-peak-players">–</div></div>
+            <div class="metric-tile"><div class="m-label">ユニーク参加者</div><div class="m-value" id="history-unique-players">–</div></div>
+            <div class="metric-tile"><div class="m-label">セッション数</div><div class="m-value" id="history-session-count">–</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">サーバー推移</div>
+          <div class="history-chart-grid">
+            <div class="chart-box"><div class="chart-title">FPS</div><svg class="history-chart" id="chart-fps" viewBox="0 0 600 190" role="img" aria-label="FPS履歴"></svg></div>
+            <div class="chart-box"><div class="chart-title">フレーム時間</div><svg class="history-chart" id="chart-frametime" viewBox="0 0 600 190" role="img" aria-label="フレーム時間履歴"></svg></div>
+            <div class="chart-box"><div class="chart-title">接続プレイヤー数</div><svg class="history-chart" id="chart-players" viewBox="0 0 600 190" role="img" aria-label="プレイヤー数履歴"></svg></div>
+            <div class="chart-box"><div class="chart-title">システムCPU・メモリ</div><svg class="history-chart" id="chart-system" viewBox="0 0 600 190" role="img" aria-label="CPUとメモリ使用率履歴"></svg></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">プレイヤーセッション</div>
+          <p class="note" style="margin-bottom:10px;">表示期間にかかわらず最新100件を表示します。30秒間隔の観測結果のため、Manager停止中の接続や切断は正確な時刻を記録できません。</p>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>名前</th><th>アカウント</th><th>開始</th><th>終了</th><th>時間</th><th>状態</th></tr></thead>
+              <tbody id="history-session-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- コマンド -->
+      <div class="tab-panel" id="tab-commands">
+        <div class="page-head"><h2>コマンド</h2></div>
+        <p class="note" style="margin-bottom:14px;">Palworld の管理コマンドを REST API 経由で実行します。</p>
+        <div id="cmd-list"></div>
+      </div>
+
+      <!-- 設定ファイル -->
+      <div class="tab-panel" id="tab-ini">
+        <div class="page-head">
+          <h2>設定ファイル</h2>
+          <div class="right"><button class="btn btn-ghost btn-sm" id="ini-refresh">更新</button></div>
+        </div>
+        <div class="card">
+          <div class="ini-notice" id="ini-notice"></div>
+          <p class="note" style="margin-bottom:12px;">値をクリックすると編集できます。変更はファイルに保存され、サーバー再起動で反映されます。変更前のバックアップが自動生成されます。パスワード系は安全のため値を表示しません。</p>
+          <input class="input input-full" style="margin-bottom:12px;" type="text" id="ini-filter" placeholder="設定名で絞り込み...">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th style="width:40%">設定名</th><th>現在値</th></tr></thead>
+              <tbody id="ini-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">保存値と稼働値の差分</span>
+            <button class="btn btn-ghost btn-sm" id="config-diff-refresh" type="button">比較</button>
+          </div>
+          <p class="note" style="margin:10px 0;">PalWorldSettings.ini の保存値と、REST APIが返す現在の稼働値を比較します。差分は再起動待ちの目安です。</p>
+          <div class="maintenance-status" id="config-diff-summary">
+            <span class="note">比較を実行すると差分を表示します。</span>
+          </div>
+          <div class="tbl-wrap" style="margin-top:12px;">
+            <table>
+              <thead><tr><th>設定名</th><th>保存値</th><th>稼働値</th><th>状態</th></tr></thead>
+              <tbody id="config-diff-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- サーバー操作 -->
+      <div class="tab-panel" id="tab-operations">
+        <div class="page-head"><h2>サーバー操作</h2></div>
+        <div class="card">
+          <div class="card-title">安全なメンテナンス</div>
+          <p class="note" style="margin-bottom:12px;">接続者確認、予告、ワールド保存、再起動またはアップデート、REST APIの復旧確認まで順番に実行します。接続者がいる場合は既定で開始しません。</p>
+          <div class="maintenance-grid">
+            <div class="field">
+              <label for="maintenance-action">操作</label>
+              <select class="input input-full" id="maintenance-action">
+                <option value="restart">安全に再起動</option>
+                <option value="update">安全にアップデート</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="maintenance-countdown">予告時間（秒）</label>
+              <input class="input input-full" id="maintenance-countdown" type="number" value="60" min="0" max="300">
+            </div>
+            <div class="field full">
+              <label for="maintenance-message">予告メッセージ</label>
+              <input class="input input-full" id="maintenance-message" type="text" maxlength="500" value="サーバーメンテナンスを開始します">
+            </div>
+            <label class="check-label full"><input type="checkbox" id="maintenance-allow-players"> 接続中プレイヤーがいても実行する</label>
+          </div>
+          <div class="maintenance-actions">
+            <button class="btn btn-warn btn-sm" id="maintenance-start" type="button">メンテナンス開始</button>
+            <button class="btn btn-ghost btn-sm" id="maintenance-cancel" type="button" disabled>カウントダウンを中止</button>
+          </div>
+          <div class="maintenance-status" id="maintenance-status" aria-live="polite">
+            <div class="maintenance-status-line"><span class="status-tag idle" id="maintenance-state">待機中</span><span id="maintenance-started"></span></div>
+            <div class="maintenance-detail" id="maintenance-detail">実行中のメンテナンスはありません。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">サーバー終了日時</div>
+          <p class="note" style="margin-bottom:12px;">指定した日時になると、自動でサーバーを停止します（クイックアクションの「停止」と同じ処理）。再起動は行いません。設定できるのは1件のみで、再設定すると上書きされます。</p>
+          <div class="maintenance-status-line"><span class="status-tag idle" id="shutdown-schedule-state">未設定</span><span id="shutdown-schedule-detail"></span></div>
+          <div class="maintenance-grid" style="margin-top:12px;">
+            <div class="field">
+              <label for="shutdown-schedule-dt">終了日時</label>
+              <input class="input input-full" type="datetime-local" id="shutdown-schedule-dt">
+            </div>
+            <div class="field">
+              <label for="shutdown-schedule-label">ラベル（任意）</label>
+              <input class="input input-full" type="text" id="shutdown-schedule-label" placeholder="サーバー終了" maxlength="100">
+            </div>
+          </div>
+          <div class="maintenance-actions">
+            <button class="btn btn-warn btn-sm" id="shutdown-schedule-set" type="button">設定 / 上書き</button>
+            <button class="btn btn-ghost btn-sm" id="shutdown-schedule-clear" type="button">解除</button>
+          </div>
+        </div>
+        <div class="ops-grid">
+          <div class="op-card">
+            <div class="op-name">アナウンス</div>
+            <p class="op-desc">全プレイヤーにメッセージを送信します。</p>
+            <textarea class="input input-full" id="announce-msg" rows="3" placeholder="メッセージを入力..."></textarea>
+            <button class="btn btn-primary btn-sm" id="op-announce">送信</button>
+          </div>
+          <div class="op-card">
+            <div class="op-name">ワールド保存</div>
+            <p class="op-desc">現在のワールドデータを手動保存します。</p>
+            <button class="btn btn-ok btn-sm" id="op-save">今すぐ保存</button>
+          </div>
+          <div class="op-card">
+            <div class="op-name">シャットダウン</div>
+            <p class="op-desc">指定秒数の猶予後にサーバーをシャットダウンします。</p>
+            <input class="input input-full" type="number" id="shutdown-wait" value="60" min="0" max="3600" placeholder="待機秒数">
+            <input class="input input-full" type="text" id="shutdown-msg" placeholder="メッセージ（任意）">
+            <button class="btn btn-warn btn-sm" id="op-shutdown">シャットダウン</button>
+          </div>
+          <div class="op-card">
+            <div class="op-name">強制停止</div>
+            <p class="op-desc">サーバーを即座に強制停止します。未保存データが失われる可能性があります。</p>
+            <button class="btn btn-err btn-sm" id="op-stop">強制停止</button>
+          </div>
+          <div class="op-card">
+            <div class="op-name">アンバン</div>
+            <p class="op-desc">バン済みプレイヤーの User ID を入力して解除します。</p>
+            <input class="input input-full" type="text" id="unban-userid" placeholder="User ID">
+            <button class="btn btn-ghost btn-sm" id="op-unban">アンバン実行</button>
+          </div>
+          <div class="op-card">
+            <div class="op-name">Discord 通知テスト</div>
+            <p class="op-desc" id="discord-test-desc">Webhook にテスト通知を送信して設定を確認します。</p>
+            <button class="btn btn-ghost btn-sm" id="discord-test-btn">テスト送信</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- スケジューラ -->
+      <div class="tab-panel" id="tab-schedule">
+        <div class="page-head">
+          <h2>再起動スケジューラ</h2>
+          <div class="right"><button class="btn btn-ghost btn-sm" id="schedule-refresh">更新</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">毎日の再起動時刻を選択</div>
+          <p class="note" style="margin-bottom:12px;">再起動したい時刻を選んで追加してください（複数選択可）。<strong>選んだ時刻からゲーム内アナウンス（5分前・1分前・30秒前）が始まり、約5分後にワールド保存のうえ再起動します。</strong>時刻は「予告開始時刻」です。時刻の解釈はサーバーのタイムゾーン（既定 Asia/Tokyo）に従います。</p>
+          <div class="hour-grid" id="hour-grid"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="input" style="width:280px;" type="text" id="sch-label" placeholder="ラベル（省略時は自動生成）">
+            <button class="btn btn-primary btn-sm" id="sch-add-hour">選択した時刻で追加</button>
+            <span class="note" id="hour-selected-note"></span>
+          </div>
+
+          <hr class="divider">
+
+          <div class="card-title">日時を指定して1回だけ再起動</div>
+          <p class="note" style="margin-bottom:10px;">カレンダーから日時を選ぶと、その日時に予告を開始し、約5分後に1回だけ再起動します（成功後は自動削除）。</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="input" type="datetime-local" id="sch-once-dt">
+            <input class="input" style="width:220px;" type="text" id="sch-once-label" placeholder="ラベル（省略時: 臨時再起動）">
+            <button class="btn btn-primary btn-sm" id="sch-add-once">この日時で追加</button>
+          </div>
+
+          <hr class="divider">
+
+          <div class="card-title">cron 式で追加（上級者向け）</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="input" style="width:180px;font-family:var(--mono);" type="text" id="sch-cron" placeholder="0 */6 * * *">
+            <input class="input" style="width:220px;" type="text" id="sch-cron-label" placeholder="ラベル">
+            <button class="btn btn-ghost btn-sm" id="sch-add-cron">追加</button>
+          </div>
+          <p class="note" style="margin-top:6px;">書式: 分 時 日 月 曜日。<strong>曜日は数字ではなく mon〜sun で指定してください</strong>（APScheduler では 0=月曜のため、標準 crontab の数字と食い違います）。</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">登録済みスケジュール</div>
+          <div id="schedule-list"><p class="note">読み込み中...</p></div>
+        </div>
+      </div>
+
+      <!-- ログ -->
+      <div class="tab-panel" id="tab-logs">
+        <div class="page-head"><h2>サーバーログ</h2></div>
+        <div class="log-toolbar">
+          <button class="btn btn-primary btn-sm" id="log-connect-btn">接続</button>
+          <button class="btn btn-ghost btn-sm" id="log-clear-btn">クリア</button>
+          <label class="check-label"><input type="checkbox" id="log-autoscroll" checked> 自動スクロール</label>
+          <div class="status-chip" style="margin-left:auto;"><span class="dot dot-off" id="log-dot"></span><span id="log-status-txt">未接続</span></div>
+        </div>
+        <div id="log-container"></div>
+      </div>
+
+    </div><!-- /#content -->
+    </div><!-- /#main-col -->
+  </div>
+</div>
+
+<!-- 確認モーダル -->
+<div class="overlay hidden" id="confirm-modal">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <p class="modal-body" id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancel">キャンセル</button>
+      <button class="btn btn-err" id="modal-ok">実行</button>
+    </div>
+  </div>
+</div>
+
+<!-- sudo パスワード入力モーダル -->
+<div class="overlay hidden" id="sudo-password-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sudo-password-title">
+    <form id="sudo-password-form">
+      <h3 id="sudo-password-title">sudoパスワードの入力</h3>
+      <p class="modal-body">更新スクリプトをroot権限で実行するため、palworld-userユーザーのsudoパスワードを入力してください。sudoersでrootpwまたはtargetpwを設定している場合は、その設定に従います。NOPASSWDなど、パスワード認証を免除する構成ではこの入力方式を使用しないでください。</p>
+      <div class="field">
+        <label for="sudo-password-input">palworld-userのsudoパスワード</label>
+        <input class="input input-full" id="sudo-password-input" type="password" autocomplete="new-password" maxlength="1024" required>
+      </div>
+      <p class="note">入力値は設定ファイルやメンテナンス履歴へ保存しません。認証付きHTTPSの管理画面でのみ入力してください。</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="sudo-password-cancel" type="button">キャンセル</button>
+        <button class="btn btn-warn" id="sudo-password-submit" type="submit">アップデート開始</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- プレイヤー操作モーダル -->
+<div class="overlay hidden" id="player-modal">
+  <div class="modal">
+    <h3 id="player-modal-title"></h3>
+    <p class="modal-body" id="player-modal-body"></p>
+    <div class="field"><label>メッセージ（任意）</label><input class="input input-full" type="text" id="player-action-msg" placeholder="理由など"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="player-modal-cancel">キャンセル</button>
+      <button class="btn btn-err" id="player-modal-ok">実行</button>
+    </div>
+  </div>
+</div>
+
+<!-- INI 編集モーダル -->
+<div class="overlay hidden" id="ini-modal">
+  <div class="modal">
+    <h3>設定を編集</h3>
+    <p class="modal-body num" id="ini-modal-key" style="color:var(--accent);"></p>
+    <div class="field"><label>新しい値</label><input class="input input-full" type="text" id="ini-modal-val"></div>
+    <p class="note">保存後はサーバー再起動で反映されます。変更前のバックアップが自動生成されます。</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="ini-modal-cancel">キャンセル</button>
+      <button class="btn btn-primary" id="ini-modal-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+"use strict";
+/* ─── 状態 ──────────────────────────────────────────────────────── */
+const API = '';
+const REFRESH_MS = 1000;
+const INFO_REFRESH_MS = 30000;
+const RANKING_REFRESH_MS = 10000;
+const WORLD_REFRESH_MS = 15000;
+const HISTORY_REFRESH_MS = 30000;
+const MAINTENANCE_REFRESH_MS = 5000;
+const DASH_CHART_REFRESH_MS = 30000;
+const SHUTDOWN_REFRESH_MS = 30000;
+let ws = null, wsConnected = false, autoReconnect = false;
+let iniValues = {}, iniReadonly = false, iniSecretKeys = [];
+let refreshTimer = null;
+let dashboardBusy = false, playersBusy = false, rankingBusy = false, worldBusy = false, historyBusy = false, configDiffBusy = false;
+let dashChartBusy = false;
+let lastInfoAt = 0, lastRankingAt = 0, lastWorldAt = 0, lastHistoryAt = 0, lastDashChartAt = 0;
+let worldSnapshot = null;
+let maintenanceBusy = false;
+let lastMaintenanceState = null;
+let lastMaintenanceFingerprint = null;
+let lastMaintenanceAt = 0;
+let lastShutdownAt = 0;
+let pendingUpdateRequest = null;
+let rankingCsvBusy = false;
+
+/* ─── API ────────────────────────────────────────────────────────── */
+async function api(method, path, body) {
+  const opts = {
+    method,
+    cache: 'no-store',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+/* ─── DOM ヘルパー（XSS 安全: textContent のみ使用）─────────────── */
+function el(tag, opts = {}, children = []) {
+  const node = document.createElement(tag);
+  if (opts.class) node.className = opts.class;
+  if (opts.text != null) node.textContent = opts.text;
+  if (opts.attrs) for (const [k, v] of Object.entries(opts.attrs)) node.setAttribute(k, v);
+  if (opts.style) node.style.cssText = opts.style;
+  if (opts.on) for (const [ev, fn] of Object.entries(opts.on)) node.addEventListener(ev, fn);
+  if (opts.dataset) for (const [k, v] of Object.entries(opts.dataset)) node.dataset[k] = v;
+  for (const c of children) if (c != null) node.append(c);
+  return node;
+}
+function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+/* ─── フラッシュバー（AWS コンソール flashbar 風） ──────────────── */
+function toast(msg, type = 'info') {
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  const node = el('div', { class: 'toast ' + type }, [
+    el('span', { class: 'toast-icon', text: icons[type] || 'ℹ' }),
+    el('span', { class: 'toast-msg', text: msg }),
+  ]);
+  document.getElementById('toast-wrap').append(node);
+  setTimeout(() => node.remove(), 4500);
+}
+
+/* ─── アプリ初期化 ───────────────────────────────────────────────── */
+async function initApp() {
+  buildHourGrid();
+  buildCommandList();
+  try { await loadEnvInfo(); } catch(e) { /* 接続失敗は無視 */ }
+  loadNotifyStatus();
+  loadMaintenanceStatus();
+  loadShutdownBanner();
+  loadShutdownScheduleCard();
+  lastInfoAt = 0;
+  loadDashboard();
+  loadDashboardCharts();
+  renderEventLog();          /* 空状態のメッセージを先に出す */
+  autoReconnect = true;      /* ダッシュボードのイベントログを機能させるため自動接続する */
+  connectLog();
+  startRefresh();
+}
+
+async function loadEnvInfo() {
+  const d = await api('GET', '/api/config/env');
+  const banner = document.getElementById('env-banner');
+  banner.textContent = d.label + '  ' + d.pal_host + ':' + d.pal_port;
+  banner.style.background = d.color;
+  /* サーバー情報カードのアドレス欄（REST API の接続先） */
+  setText('i-address', d.pal_host + ':' + d.pal_port);
+  document.title = d.label + ' Palworld Manager';
+  const regionItem = document.getElementById('region-item');
+  if (regionItem) {
+    const regionLabel = d.is_production ? '本番環境' : '検証環境';
+    regionItem.title = d.env;
+    regionItem.firstChild.nodeValue = regionLabel;
+  }
+}
+
+async function loadShutdownBanner() {
+  lastShutdownAt = Date.now();
+  try {
+    const d = await api('GET', '/api/shutdown-schedule/');
+    const banner = document.getElementById('shutdown-banner');
+    if (d.state === 'reached') {
+      banner.className = 'reached';
+      banner.textContent = '⛔ ' + (d.label || 'サーバー終了') + '日を迎えました' +
+        (d.last_error ? '（停止処理でエラーが発生しています: ' + d.last_error + '）' : '');
+    } else if (d.state === 'countdown' && d.days_remaining <= 3) {
+      banner.className = 'countdown';
+      banner.textContent = '⚠ あと' + d.days_remaining + '日で' + (d.label || 'サーバー終了') + '（' +
+        new Date(d.shutdown_at).toLocaleString('ja-JP') + '）';
+    } else {
+      banner.className = 'hidden';
+    }
+  } catch(e) { /* 取得失敗時は前回表示のまま維持する */ }
+}
+
+async function loadNotifyStatus() {
+  try {
+    const d = await api('GET', '/api/system/notify-status');
+    const dot = document.getElementById('discord-dot');
+    const lbl = document.getElementById('discord-label');
+    if (d.discord_enabled) {
+      dot.className = 'dot dot-on';
+      lbl.textContent = 'Discord通知: 有効';
+    } else {
+      dot.className = 'dot dot-idle';
+      lbl.textContent = 'Discord通知: 未設定';
+      const desc = document.getElementById('discord-test-desc');
+      const btn = document.getElementById('discord-test-btn');
+      if (desc) desc.textContent = 'DISCORD_WEBHOOK_URL が未設定です。/etc/palworld-manager.env に設定してサービスを再起動してください。';
+      if (btn) btn.disabled = true;
+    }
+  } catch(e) { /* 無視 */ }
+}
+
+/* ─── ナビ ────────────────────────────────────────────────────────── */
+const menuToggle = document.getElementById('menu-toggle');
+const layout = document.getElementById('layout');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+const content = document.getElementById('content');
+const contentTopbar = document.getElementById('content-topbar');
+const sidebarCloseBtn = document.getElementById('sidebar-close');
+const mobileSidebarQuery = window.matchMedia('(max-width: 700px)');
+let mobileSidebarOpen = false;
+let desktopSidebarOpen = true;
+
+function renderSidebarState({ focusSidebar = false, focusToggle = false } = {}) {
+  const mobile = mobileSidebarQuery.matches;
+  const open = mobile ? mobileSidebarOpen : desktopSidebarOpen;
+
+  layout.classList.toggle('sidebar-open', mobile && open);
+  layout.classList.toggle('sidebar-collapsed', !mobile && !open);
+  menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
+  menuToggle.title = open ? 'メニューを閉じる' : 'メニューを開く';
+  sidebar.setAttribute('aria-hidden', String(!open));
+  sidebar.toggleAttribute('inert', !open);
+  content.toggleAttribute('inert', mobile && open);
+  // モバイルでドロワーが開いているとき #content-topbar も inert にする。
+  // 閉じる経路はサイドバー内の #sidebar-close ボタンで提供するため操作不能にしても問題ない。
+  contentTopbar.toggleAttribute('inert', mobile && open);
+  // 背景はポインター操作専用。閉じる操作は #sidebar-close と Escape からも行える。
+  sidebarBackdrop.setAttribute('aria-hidden', 'true');
+
+  if (focusSidebar && open) {
+    requestAnimationFrame(() => sidebarCloseBtn.focus());
+  } else if (focusToggle) {
+    requestAnimationFrame(() => menuToggle.focus());
+  }
+}
+
+/* モバイルドロワー内のフォーカストラップ: Tab/Shift+Tab を sidebar 内で循環させる */
+sidebar.addEventListener('keydown', event => {
+  if (event.key !== 'Tab' || !mobileSidebarQuery.matches || !mobileSidebarOpen) return;
+  const focusable = Array.from(sidebar.querySelectorAll(
+    'button:not([disabled]):not([inert]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => !el.closest('[inert]'));
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last  = focusable[focusable.length - 1];
+  if (event.shiftKey) {
+    if (document.activeElement === first) { event.preventDefault(); last.focus(); }
+  } else {
+    if (document.activeElement === last)  { event.preventDefault(); first.focus(); }
+  }
+});
+
+function toggleSidebar() {
+  if (mobileSidebarQuery.matches) {
+    mobileSidebarOpen = !mobileSidebarOpen;
+    renderSidebarState({ focusSidebar: mobileSidebarOpen, focusToggle: !mobileSidebarOpen });
+  } else {
+    desktopSidebarOpen = !desktopSidebarOpen;
+    renderSidebarState();
+  }
+}
+
+function closeMobileSidebar(returnFocus = false) {
+  if (!mobileSidebarQuery.matches || !mobileSidebarOpen) return;
+  mobileSidebarOpen = false;
+  renderSidebarState({ focusToggle: returnFocus });
+}
+
+function handleSidebarBreakpointChange() {
+  const focusWasInSidebar = sidebar.contains(document.activeElement);
+  mobileSidebarOpen = false;
+  if (!mobileSidebarQuery.matches) desktopSidebarOpen = true;
+  renderSidebarState({ focusToggle: focusWasInSidebar && mobileSidebarQuery.matches });
+}
+
+menuToggle.addEventListener('click', toggleSidebar);
+sidebarCloseBtn.addEventListener('click', () => closeMobileSidebar(true));
+sidebarBackdrop.addEventListener('click', () => closeMobileSidebar(true));
+if (mobileSidebarQuery.addEventListener) {
+  mobileSidebarQuery.addEventListener('change', handleSidebarBreakpointChange);
+} else {
+  mobileSidebarQuery.addListener(handleSidebarBreakpointChange);
+}
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !mobileSidebarOpen) return;
+  if (document.querySelector('.overlay:not(.hidden)')) return;
+  event.preventDefault();
+  closeMobileSidebar(true);
+});
+
+function currentTab() {
+  const active = document.querySelector('.nav-item.active');
+  return active ? active.dataset.tab : 'dashboard';
+}
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => {
+      b.classList.remove('active');
+      b.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    btn.setAttribute('aria-current', 'page');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-' + tab).classList.add('active');
+    setBreadcrumb(tab);
+    hideChartHover();  // タブ切替時にタッチ操作で残ったツールチップを消す
+    if (tab === 'players') loadPlayers();
+    if (tab === 'ranking') loadRanking();
+    if (tab === 'world') loadWorld();
+    if (tab === 'history') loadHistory();
+    if (tab === 'ini') loadIni();
+    if (tab === 'operations') loadMaintenanceStatus();
+    if (tab === 'schedule') loadSchedules();
+    if (tab === 'dashboard') { loadDashboard(); loadMaintenanceStatus(); }
+    /* ログタブへ切替時、非表示中に溜まったキューを一括 flush する */
+    if (tab === 'logs' && appendLogQueue.length) { appendLogPending = true; requestAnimationFrame(_flushAppendLog); }
+    closeMobileSidebar(true);
+  });
+});
+renderSidebarState();
+
+/* ─── 自動更新（1秒） ────────────────────────────────────────────── */
+function startRefresh() {
+  stopRefresh();
+  refreshTimer = setInterval(() => {
+    if (document.hidden) return;
+    const tab = currentTab();
+    if (tab === 'dashboard') {
+      loadDashboard();
+      /* 履歴 API は重いので 1 秒ごとには叩かない */
+      if ((Date.now() - lastDashChartAt) >= DASH_CHART_REFRESH_MS) loadDashboardCharts();
+    }
+    else if (tab === 'players') loadPlayers();
+    else if (tab === 'ranking' && (Date.now() - lastRankingAt) >= RANKING_REFRESH_MS) loadRanking();
+    else if (tab === 'world' && (Date.now() - lastWorldAt) >= WORLD_REFRESH_MS) loadWorld();
+    else if (tab === 'history' && (Date.now() - lastHistoryAt) >= HISTORY_REFRESH_MS) loadHistory();
+    else if (tab === 'operations') { loadMaintenanceStatus(); loadShutdownScheduleCard(); }
+    if (tab !== 'operations' && (Date.now() - lastMaintenanceAt) >= MAINTENANCE_REFRESH_MS) {
+      loadMaintenanceStatus();
+    }
+    if ((Date.now() - lastShutdownAt) >= SHUTDOWN_REFRESH_MS) loadShutdownBanner();
+  }, REFRESH_MS);
+}
+function stopRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+
+/* ─── ダッシュボード ────────────────────────────────────────────── */
+async function loadDashboard() {
+  if (dashboardBusy) return;
+  dashboardBusy = true;
+  try {
+    const now = Date.now();
+    const wantInfo = (now - lastInfoAt) >= INFO_REFRESH_MS;
+    const [metrics, info, sys, svc] = await Promise.all([
+      api('GET', '/api/server/metrics').catch(() => null),
+      wantInfo ? api('GET', '/api/server/info').catch(() => null) : Promise.resolve(undefined),
+      api('GET', '/api/system/metrics').catch(() => null),
+      api('GET', '/api/system/service-status').catch(() => null),
+    ]);
+    if (svc) {
+      const dot = document.getElementById('svc-dot');
+      const lbl = document.getElementById('svc-label');
+      /* running は true / false / null の 3 値。null は「停止」ではなく状態不明。 */
+      if (svc.query_ok === false || svc.running === null) {
+        dot.className = 'dot dot-idle';
+        lbl.className = 'kpi-value unknown';
+        lbl.textContent = '状態不明';
+      } else if (svc.running) {
+        dot.className = 'dot dot-on';
+        lbl.className = 'kpi-value ok';
+        lbl.textContent = '稼働中';
+      } else {
+        dot.className = 'dot dot-off';
+        lbl.className = 'kpi-value off';
+        lbl.textContent = '停止中';
+      }
+    }
+    if (metrics) {
+      setText('m-players', metrics.currentplayernum);
+      setText('m-maxplayers', metrics.maxplayernum);
+      setText('i-maxplayers', metrics.maxplayernum);
+      setText('m-fps', metrics.serverfps);
+      setText('m-days', metrics.days);
+      setText('m-basecamps', metrics.basecampnum);
+      setText('m-frametime', metrics.serverframetime != null ? metrics.serverframetime.toFixed(2) + ' ms' : null);
+      setText('kpi-uptime-sub', metrics.uptime != null ? '稼働時間 ' + fmtUptimeLong(metrics.uptime) : '稼働時間 –');
+      setText('kpi-players-sub',
+        '接続中 ' + (metrics.currentplayernum ?? '–') + '　最大 ' + (metrics.maxplayernum ?? '–'));
+      /* 起動日時は API に無いので、現在時刻から uptime を引いて算出する */
+      setText('i-booted', metrics.uptime != null
+        ? new Date(Date.now() - metrics.uptime * 1000).toLocaleString('ja-JP')
+        : null);
+    } else {
+      /* サーバー停止などで metrics が取得できない場合、古い値を残さず – にクリアする */
+      for (const id of ['m-players', 'm-maxplayers', 'i-maxplayers', 'm-fps', 'm-days',
+                        'm-basecamps', 'm-frametime', 'i-booted']) {
+        setText(id, null);
+      }
+      setText('kpi-uptime-sub', '稼働時間 –');
+      setText('kpi-players-sub', '接続中 –　最大 –');
+    }
+    if (info) {
+      lastInfoAt = now;
+      setText('i-name', info.servername);
+      setText('i-version', info.version);
+      setText('i-desc', info.description || '(なし)');
+      setText('i-guid', info.worldguid);
+    }
+    if (sys) {
+      const s = sys.system, p = sys.palworld;
+      const host = sys.host || {};
+      setText('host-os', host.os_pretty_name);
+      setText('host-cpu', s.cpu_count != null ? s.cpu_count + ' コア' : null);
+      setText('host-memory', s.mem_total_gb != null ? s.mem_total_gb + ' GB' : null);
+      setText('host-disk', s.disk_total_gb != null ? s.disk_total_gb + ' GB' : null);
+      /* warming 中は cpu_percent が null。0% と誤表示せず「計測中」を出す。 */
+      const staleTag = sys.stale ? '（データ更新停止中）' : '';
+      setKpiPercent('cpu', s.cpu_percent,
+        s.cpu_percent != null ? (s.cpu_count != null ? s.cpu_count + ' コア' : '') + staleTag : '計測中' + staleTag);
+      setKpiPercent('mem', s.mem_percent,
+        (s.mem_used_gb != null ? s.mem_used_gb + 'GB / ' + s.mem_total_gb + 'GB' : '–') + staleTag);
+      setKpiPercent('disk', s.disk_percent,
+        (s.disk_used_gb != null ? s.disk_used_gb + 'GB / ' + s.disk_total_gb + 'GB' : '–') + staleTag);
+      setText('sys-cpu', s.cpu_percent != null ? s.cpu_percent.toFixed(1) + ' %' : '計測中');
+      setText('sys-mem', s.mem_percent != null ? s.mem_percent.toFixed(1) + ' %' : null);
+      if (p.running) {
+        setText('i-pid', p.pid ?? '–');
+        setText('pal-cpu', p.cpu_percent != null ? p.cpu_percent.toFixed(1) + ' %' : '計測中');
+        setText('pal-mem', p.mem_mb != null ? (p.mem_mb / 1024).toFixed(1) + ' GB' : null);
+      } else {
+        setText('i-pid', '停止中');
+        setText('pal-cpu', '停止中');
+        setText('pal-mem', '停止中');
+      }
+    }
+    /* 少なくとも1本のAPIが成功した場合のみ更新時刻を進める */
+    if (svc !== null || sys !== null) {
+      document.getElementById('dashboard-updated').textContent = new Date().toLocaleString('ja-JP');
+    }
+  } finally {
+    dashboardBusy = false;
+  }
+}
+
+function setText(id, v) { document.getElementById(id).textContent = (v === null || v === undefined) ? '–' : v; }
+
+/* KPI カードのパーセント表示。null（計測中）は「–」にして 0% と区別する。 */
+function setKpiPercent(key, pct, sub) {
+  setText('kpi-' + key + '-value', pct != null ? pct.toFixed(1) + '%' : '–');
+  setText('kpi-' + key + '-sub', sub);
+}
+
+function fmtUptime(sec) {
+  if (sec == null) return null;
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return h > 0 ? h+'h'+m+'m' : m > 0 ? m+'m'+s+'s' : s+'s';
+}
+/* 「2日 14時間 32分」形式。KPI カードの補足行で使う。 */
+function fmtUptimeLong(sec) {
+  if (sec == null) return '–';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return d + '日 ' + h + '時間 ' + m + '分';
+  if (h > 0) return h + '時間 ' + m + '分';
+  return m + '分';
+}
+
+/* ─── サービス制御 ──────────────────────────────────────────────── */
+function confirmSvcAction(action, label) {
+  if (action === 'restart') {
+    document.getElementById('maintenance-action').value = 'restart';
+    navTo('operations');
+    toast('安全なメンテナンスから再起動条件を確認してください', 'info');
+    return;
+  }
+  openModal(label + '確認', 'サーバーを' + label + 'しますか？', async () => {
+    try { await api('POST', '/api/system/' + action); toast(label + 'しました', 'success'); setTimeout(loadDashboard, 2000); }
+    catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+
+/* ─── プレイヤー（DOM 構築: XSS 安全）───────────────────────────── */
+async function loadPlayers() {
+  if (playersBusy) return;
+  playersBusy = true;
+  try {
+    const data    = await api('GET', '/api/server/players');
+    const players = (data && data.players) || [];
+    const tbody   = document.getElementById('players-tbody');
+    clear(tbody);
+    if (!players.length) {
+      const td = el('td', { text: '接続中のプレイヤーはいません', attrs: { colspan: '8' }, style: 'text-align:center;color:var(--faint);padding:20px;' });
+      tbody.append(el('tr', {}, [td]));
+      return;
+    }
+    for (const p of players) {
+      const cells = [
+        el('td', { text: p.name != null ? String(p.name) : '', style: 'font-weight:600' }),
+        el('td', { text: p.accountName != null ? String(p.accountName) : '', style: 'color:var(--faint);font-size:12px' }),
+        el('td', { class: 'num', text: p.level ?? '–' }),
+        el('td', { class: 'num', text: p.ping != null ? p.ping.toFixed(0) + ' ms' : '–' }),
+        el('td', { class: 'num', text: (p.location_x != null ? p.location_x.toFixed(0) : '–') + ' / ' + (p.location_y != null ? p.location_y.toFixed(0) : '–'), style: 'font-size:11.5px' }),
+        el('td', { class: 'num', text: p.building_count ?? '–' }),
+        el('td', { class: 'num', text: p.ip != null ? String(p.ip) : '', style: 'font-size:11px;color:var(--faint)' }),
+      ];
+      const kickBtn = el('button', { class: 'btn btn-warn btn-sm', text: 'キック', on: { click: () => openPlayerAction('kick', p.userId, p.name) } });
+      const banBtn  = el('button', { class: 'btn btn-err btn-sm',  text: 'バン',   on: { click: () => openPlayerAction('ban', p.userId, p.name) } });
+      cells.push(el('td', {}, [el('div', { style: 'display:flex;gap:6px;' }, [kickBtn, banBtn])]));
+      tbody.append(el('tr', {}, cells));
+    }
+  } catch(e) {
+    // 接続断などは自動更新中なのでトーストを出さない
+  } finally {
+    playersBusy = false;
+  }
+}
+
+let playerAction = null;
+function openPlayerAction(action, userId, name) {
+  playerAction = { action, userId: String(userId ?? ''), name: String(name ?? '') };
+  const lbl = action === 'kick' ? 'キック' : 'バン';
+  document.getElementById('player-modal-title').textContent = playerAction.name + ' を' + lbl;
+  document.getElementById('player-modal-body').textContent  = '本当に ' + playerAction.name + ' を' + lbl + 'しますか？';
+  document.getElementById('player-action-msg').value = '';
+  document.getElementById('player-modal').classList.remove('hidden');
+}
+function closePlayerModal() { document.getElementById('player-modal').classList.add('hidden'); playerAction = null; }
+async function execPlayerAction() {
+  if (!playerAction) return;
+  const msg = document.getElementById('player-action-msg').value;
+  const act = playerAction;
+  try {
+    await api('POST', '/api/server/' + act.action, { user_id: act.userId, message: msg });
+    toast(act.name + ' を' + (act.action === 'kick' ? 'キック' : 'バン') + 'しました', 'success');
+    closePlayerModal(); loadPlayers();
+  } catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+
+/* ─── ランキング（DOM 構築: XSS 安全）───────────────────────────── */
+function compareRankingPlayers(a, b, metric) {
+  let difference = (Number(b[metric]) || 0) - (Number(a[metric]) || 0);
+  if (difference) return difference;
+  difference = (Number(b.total_seconds) || 0) - (Number(a.total_seconds) || 0);
+  if (difference) return difference;
+  for (const key of ['userId', 'name', 'accountName']) {
+    const left = String(a[key] || '');
+    const right = String(b[key] || '');
+    if (left < right) return -1;
+    if (left > right) return 1;
+  }
+  return 0;
+}
+
+async function loadRanking() {
+  if (rankingBusy) return;
+  rankingBusy = true;
+  lastRankingAt = Date.now();
+  try {
+    const data = await api('GET', '/api/ranking/');
+    const upd = document.getElementById('ranking-updated');
+    upd.textContent = (data && data.updated) ? '更新 ' + new Date(data.updated).toLocaleTimeString('ja-JP') : '';
+    const metric  = document.getElementById('ranking-metric').value;
+    const players = (data && data.players) || [];
+    players.sort((a, b) => compareRankingPlayers(a, b, metric));
+    const tbody = document.getElementById('ranking-tbody');
+    clear(tbody);
+    if (!players.length) {
+      const td = el('td', { text: 'まだ計測データがありません', attrs: { colspan: '8' }, style: 'text-align:center;color:var(--faint);padding:20px;' });
+      tbody.append(el('tr', {}, [td]));
+      return;
+    }
+    players.forEach((p, i) => {
+      tbody.append(el('tr', {}, [
+        el('td', { class: 'num', text: String(i + 1) }),
+        el('td', { text: p.name || '(不明)', style: 'font-weight:600' }),
+        el('td', { text: p.accountName || '', style: 'color:var(--faint);font-size:12px' }),
+        el('td', { class: 'num', text: fmtUptime(Math.floor(p.total_seconds || 0)) }),
+        el('td', { class: 'num', text: p.max_level || '–' }),
+        el('td', { class: 'num', text: (p.login_days || 0) + ' 日' }),
+        el('td', { class: 'num', text: p.last_seen ? new Date(p.last_seen).toLocaleString('ja-JP') : '–', style: 'font-size:11.5px' }),
+        el('td', {}, [
+          el('span', { class: 'dot ' + (p.online ? 'dot-on' : 'dot-off'), style: 'margin-right:6px;' }),
+          el('span', { text: p.online ? 'オンライン' : 'オフライン', style: p.online ? '' : 'color:var(--faint)' }),
+        ]),
+      ]));
+    });
+  } catch(e) {
+    // 自動更新中はトーストを出さず、表示が古いことだけ静かに示す
+    document.getElementById('ranking-updated').textContent = '更新失敗（表示は最終取得時点）';
+  } finally {
+    rankingBusy = false;
+  }
+}
+
+async function exportRankingCsv() {
+  if (rankingCsvBusy) return;
+  rankingCsvBusy = true;
+  const button = document.getElementById('ranking-csv-export');
+  button.disabled = true;
+  const metric = document.getElementById('ranking-metric').value;
+  try {
+    const response = await fetch(
+      API + '/api/ranking/export.csv?metric=' + encodeURIComponent(metric),
+      { method: 'GET', cache: 'no-store', credentials: 'same-origin' }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || response.statusText);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([A-Za-z0-9._-]+)"?/i);
+    const filename = match ? match[1] : 'ranking-' + metric + '.csv';
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    toast('ランキングCSVを出力しました', 'success');
+  } catch(e) {
+    toast('CSV出力に失敗しました: ' + e.message, 'error');
+  } finally {
+    rankingCsvBusy = false;
+    button.disabled = false;
+  }
+}
+
+/* ─── ワールド状況（DOM/SVG構築: XSS安全）──────────────────────── */
+const WORLD_COLORS = {
+  Player: '#0972d3', OtomoPal: '#8a5cf6', BaseCampPal: '#1d8102',
+  WildPal: '#df8b12', NPC: '#687078', PalBox: '#d13212',
+};
+const WORLD_LABELS = {
+  Player: 'プレイヤー', OtomoPal: '手持ちパル', BaseCampPal: '拠点パル',
+  WildPal: '野生パル', NPC: 'NPC', PalBox: 'PalBox',
+};
+
+/* マップ画像キャリブレーション設定（位置ズレ時はここだけ調整する）
+   - world: 画像の四辺が対応するワールド座標範囲。
+     Palworld 1.0 のゲーム内マップ座標: map_x = (world_y + 18) / 725, map_y = (world_x + 375247) / 725
+     で、ワールドマップ画像（T_WorldMap）はマップ座標 ±1000 の正方形に対応する
+     （PalworldSaveTools の描画実装より。ファストトラベル157地点の投影で位置一致を検証済み）。
+     マップ座標 ±1000 をワールド座標に戻すと下記の minX/maxX（縦=world_x）、minY/maxY（横=world_y）になる
+   - 2点キャリブレーション: 既知2点のワールド座標 w1,w2 が画像上の正規化位置 u1,u2 に見えるとき
+     scale = (w2 - w1) / (u2 - u1), min = w1 - u1 * scale, max = min + scale で逆算できる */
+const WORLD_MAP_CONFIG = {
+  imageUrls: ['/static/worldmap.png', '/static/worldmap.webp'],  // 先に見つかった方を使う
+  world: { minX: -1100247, maxX: 349753, minY: -725018, maxY: 724982 },
+  invertU: false,  // 東西が鏡像になっていたら true
+  invertV: false,  // 南北が鏡像になっていたら true
+  tolerance: 0.02, // 範囲外判定の許容率（端ギリギリの点を落とさない）
+};
+
+/* マップ画像のロード状態（unknown: 未確認 / loading / ready: 表示可 / missing: 未配置） */
+const worldMapImage = { status: 'unknown', url: null };
+
+function ensureWorldMapImage() {
+  if (worldMapImage.status !== 'unknown') return;
+  worldMapImage.status = 'loading';
+  const candidates = WORLD_MAP_CONFIG.imageUrls.slice();
+  const tryNext = () => {
+    const url = candidates.shift();
+    if (!url) { worldMapImage.status = 'missing'; renderWorldMap(); return; }
+    const img = new Image();
+    img.onload = () => { worldMapImage.status = 'ready'; worldMapImage.url = url; renderWorldMap(); };
+    img.onerror = tryNext;
+    img.src = url;
+  };
+  tryNext();
+}
+
+/* ワールド座標 → マップ画像上の正規化座標（0〜1）。範囲外（ダンジョン等）は null */
+function worldToMapUV(x, y) {
+  const w = WORLD_MAP_CONFIG.world;
+  let u = (y - w.minY) / (w.maxY - w.minY);      // 画像の横方向はワールド Y 軸（XY 入替がゲーム仕様）
+  let v = 1 - (x - w.minX) / (w.maxX - w.minX);  // 北（+X）を画像の上に対応させる
+  if (WORLD_MAP_CONFIG.invertU) u = 1 - u;
+  if (WORLD_MAP_CONFIG.invertV) v = 1 - v;
+  const t = WORLD_MAP_CONFIG.tolerance;
+  if (u < -t || u > 1 + t || v < -t || v > 1 + t) return null;
+  return { u: Math.min(1, Math.max(0, u)), v: Math.min(1, Math.max(0, v)) };
+}
+
+/* ワールド座標 → ゲーム内マップ座標（Palworld 1.0 のゲーム画面の座標表示と同じ系） */
+function worldToGameMapCoords(x, y) {
+  return { x: Math.round((y + 18) / 725), y: Math.round((x + 375247) / 725) };
+}
+
+function firstValue(obj, keys, fallback = null) {
+  for (const key of keys) if (obj && obj[key] !== undefined && obj[key] !== null) return obj[key];
+  return fallback;
+}
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+async function loadWorld() {
+  if (worldBusy) return;
+  worldBusy = true;
+  lastWorldAt = Date.now();
+  const notice = document.getElementById('world-notice');
+  notice.style.display = 'none';
+  try {
+    const data = await api('GET', '/api/world/snapshot?limit=3000');
+    worldSnapshot = data;
+    if (data.supported === false) {
+      notice.textContent = data.reason || 'このPalworldサーバーは /game-data に対応していません。';
+      notice.style.display = 'block';
+    }
+    renderWorld(data);
+    const sourceTime = data.Time || data.time || data.captured_at;
+    document.getElementById('world-updated').textContent = sourceTime ? '取得 ' + sourceTime : '更新 ' + new Date().toLocaleTimeString('ja-JP');
+  } catch(e) {
+    notice.textContent = 'ワールド状況を取得できません: ' + e.message;
+    notice.style.display = 'block';
+    document.getElementById('world-updated').textContent = '更新失敗';
+  } finally {
+    worldBusy = false;
+  }
+}
+
+function renderWorld(data) {
+  const counts = data.counts || {};
+  setText('world-count-player', firstValue(counts, ['players', 'Player'], 0));
+  setText('world-count-otomo', firstValue(counts, ['otomo_pals', 'otomo', 'OtomoPal'], 0));
+  setText('world-count-base', firstValue(counts, ['basecamp_pals', 'basecamp', 'BaseCampPal'], 0));
+  setText('world-count-wild', firstValue(counts, ['wild_pals', 'wild', 'WildPal'], 0));
+  setText('world-count-npc', firstValue(counts, ['npcs', 'NPC'], 0));
+  setText('world-count-palbox', firstValue(counts, ['palboxes', 'pal_boxes', 'PalBox'], 0));
+  const guildCount = (data.guilds || []).length;
+  setText('world-count-guild', data.guilds_truncated ? guildCount + '+' : guildCount);
+  const avgFps = firstValue(data, ['average_fps', 'AverageFPS']);
+  const averageFps = finiteNumber(avgFps);
+  setText('world-average-fps', averageFps === null ? null : averageFps.toFixed(1));
+  renderWorldGuilds(data.guilds || []);
+  renderWorldWarnings(
+    flattenWorldWarnings(data.warnings || data.alerts || []),
+    data.warning_totals || null,
+  );
+  renderWorldMap();
+}
+
+function renderWorldGuilds(guilds) {
+  const tbody = document.getElementById('world-guild-tbody');
+  clear(tbody);
+  if (!guilds.length) {
+    tbody.append(el('tr', {}, [el('td', { text: 'ギルド情報はありません', attrs: { colspan: '5' }, style: 'text-align:center;color:var(--faint);padding:20px;' })]));
+    return;
+  }
+  for (const guild of guilds) {
+    tbody.append(el('tr', {}, [
+      el('td', { text: guild.guild_name || guild.name || '(名称なし)', style: 'font-weight:600' }),
+      el('td', { class: 'num', text: firstValue(guild, ['player_count', 'players', 'player'], 0) }),
+      el('td', { class: 'num', text: firstValue(guild, ['otomo_pal_count', 'otomo_pals', 'otomo'], 0) }),
+      el('td', { class: 'num', text: firstValue(guild, ['basecamp_pal_count', 'basecamp_pals', 'basecamp'], 0) }),
+      el('td', { class: 'num', text: firstValue(guild, ['palbox_count', 'palboxes', 'palbox'], 0) }),
+    ]));
+  }
+}
+
+function flattenWorldWarnings(warnings) {
+  if (Array.isArray(warnings)) return warnings;
+  if (!warnings || typeof warnings !== 'object') return [];
+  const labels = { low_hp: 'HP低下', hp_zero: 'HP 0', inactive: '非アクティブ' };
+  const priority = ['hp_zero', 'low_hp', 'inactive'];
+  const groups = priority
+    .filter(kind => Array.isArray(warnings[kind]))
+    .map(kind => ({ kind, entries: warnings[kind] }));
+  const result = [];
+  let index = 0;
+  while (groups.some(group => index < group.entries.length)) {
+    for (const group of groups) {
+      if (index >= group.entries.length) continue;
+      result.push(Object.assign(
+        { reason: labels[group.kind] || group.kind },
+        group.entries[index],
+      ));
+    }
+    index += 1;
+  }
+  return result;
+}
+
+function renderWorldWarnings(warnings, warningTotals = null) {
+  const tbody = document.getElementById('world-warning-tbody');
+  const note = document.getElementById('world-warning-note');
+  clear(tbody);
+  const totalWarnings = warningTotals && typeof warningTotals === 'object'
+    ? Object.values(warningTotals).reduce((sum, value) => sum + (finiteNumber(value) || 0), 0)
+    : warnings.length;
+  note.textContent = totalWarnings > 100
+    ? '警告候補 ' + totalWarnings + '件のうち先頭100件を表示します。ゲーム内の実際の状態と照らし合わせて確認してください。'
+    : 'HP低下、HP 0、非アクティブ状態を候補として表示します。ゲーム内の実際の状態と照らし合わせて確認してください。';
+  if (!warnings.length) {
+    tbody.append(el('tr', {}, [el('td', { text: '警告候補はありません', attrs: { colspan: '4' }, style: 'text-align:center;color:var(--faint);padding:20px;' })]));
+    return;
+  }
+  warnings.slice(0, 100).forEach(w => {
+    const unitType = w.unit_type || w.type || '';
+    const hp = firstValue(w, ['hp', 'HP']);
+    const maxHp = firstValue(w, ['max_hp', 'MaxHP']);
+    tbody.append(el('tr', {}, [
+      el('td', { text: WORLD_LABELS[unitType] || String(unitType || 'Actor') }),
+      el('td', { text: w.nickname || w.name || '(名称なし)' }),
+      el('td', { text: w.reason || w.kind || '要確認', style: 'color:var(--warn)' }),
+      el('td', { class: 'num', text: hp != null ? String(hp) + ' / ' + (maxHp ?? '–') : '–' }),
+    ]));
+  });
+}
+
+function svgNode(tag, attrs = {}, textValue = null) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+  if (textValue != null) node.textContent = String(textValue);
+  return node;
+}
+
+/* 画像モード時の描画矩形（デバッグクリックの逆変換で使う） */
+let worldMapGeometry = null;
+
+function renderWorldMap() {
+  const svg = document.getElementById('world-map');
+  clear(svg);
+  ensureWorldMapImage();
+  const allPoints = (worldSnapshot && worldSnapshot.points) || [];
+  const filter = document.getElementById('world-map-filter').value;
+  const valid = allPoints.filter(p => {
+    const kind = p.type === 'PalBox' ? 'PalBox' : p.unit_type;
+    return (filter === 'all' || kind === filter) && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y));
+  });
+  const points = valid.slice(0, 2500);
+  const noteParts = [String(valid.length) + '件表示対象'];
+  if (valid.length > points.length) noteParts.push('描画上限 ' + points.length + '件');
+  if (worldSnapshot && worldSnapshot.truncated) noteParts.push('API応答は省略あり');
+  const useImage = worldMapImage.status === 'ready';
+  document.getElementById('world-map-wrap').classList.toggle('has-image', useImage);
+  if (!useImage) worldMapGeometry = null;
+  renderWorldLegend();
+  let content = null;
+  if (useImage) {
+    /* ── マップ画像モード: 固定ワールド座標系で配置 ──
+       viewBox 800x500 の中央に、ワールド範囲のアスペクト比を保った描画矩形を置き、
+       画像は preserveAspectRatio:none で矩形いっぱいに貼る（四辺= CONFIG の範囲）。
+       将来ズーム/パンを入れる場合は viewBox の書換えが最小実装。 */
+    const w = WORLD_MAP_CONFIG.world;
+    const aspect = (w.maxY - w.minY) / (w.maxX - w.minX);  // 横（world_y）/ 縦（world_x）
+    const boxW = 800, boxH = 500;
+    let imgH = boxH, imgW = boxH * aspect;
+    if (imgW > boxW) { imgW = boxW; imgH = boxW / aspect; }
+    const imgX = (boxW - imgW) / 2, imgY = (boxH - imgH) / 2;
+    worldMapGeometry = { imgX, imgY, imgW, imgH };
+    content = svgNode('g', { class: 'world-map-content' });
+    content.append(svgNode('image', {
+      href: worldMapImage.url,
+      x: imgX, y: imgY, width: imgW, height: imgH,
+      preserveAspectRatio: 'none',
+    }));
+    svg.append(content);
+  }
+  if (!points.length) {
+    if (worldMapImage.status === 'missing') noteParts.push('マップ画像未設定（frontend/assets/worldmap.png または .webp）');
+    document.getElementById('world-point-note').textContent = noteParts.join(' / ');
+    svg.append(svgNode('text', { x: 400, y: 250, 'text-anchor': 'middle', class: 'world-map-empty' }, '表示できる座標データがありません'));
+    return;
+  }
+  if (useImage) {
+    const g = worldMapGeometry;
+    let outOfRange = 0;
+    for (const p of points) {
+      const kind = p.type === 'PalBox' ? 'PalBox' : p.unit_type;
+      const px = Number(p.x), py = Number(p.y);
+      const uv = worldToMapUV(px, py);
+      if (!uv) { outOfRange++; continue; }
+      const circle = svgNode('circle', {
+        cx: (g.imgX + uv.u * g.imgW).toFixed(2), cy: (g.imgY + uv.v * g.imgH).toFixed(2),
+        r: kind === 'Player' || kind === 'PalBox' ? 3.6 : 2.2,
+        fill: WORLD_COLORS[kind] || WORLD_COLORS.NPC, opacity: kind === 'WildPal' ? .6 : .9,
+        stroke: '#fff', 'stroke-width': 0.6,  // 暗い地形上でも点が見えるように白縁
+      });
+      const mapCoords = worldToGameMapCoords(px, py);
+      circle.append(svgNode('title', {}, (WORLD_LABELS[kind] || kind || 'Actor') + ' / ' + (p.nickname || p.guild_name || '名称なし') + ' / マップ座標 (' + mapCoords.x + ', ' + mapCoords.y + ') / X ' + px.toFixed(0) + ' Y ' + py.toFixed(0)));
+      content.append(circle);
+    }
+    if (outOfRange) noteParts.push('マップ範囲外 ' + outOfRange + '件（ダンジョン・世界樹内部等）');
+  } else {
+    /* ── フォールバック: 点群のバウンディングボックスで相対配置（従来動作） ── */
+    if (worldMapImage.status === 'missing') noteParts.push('マップ画像未設定（frontend/assets/worldmap.png または .webp）');
+    const xs = points.map(p => Number(p.x));
+    const ys = points.map(p => Number(p.y));
+    let minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    if (minX === maxX) { minX -= 1; maxX += 1; }
+    if (minY === maxY) { minY -= 1; maxY += 1; }
+    const pad = 24, width = 800 - pad * 2, height = 500 - pad * 2;
+    for (const p of points) {
+      const kind = p.type === 'PalBox' ? 'PalBox' : p.unit_type;
+      const x = pad + ((Number(p.x) - minX) / (maxX - minX)) * width;
+      const y = 500 - pad - ((Number(p.y) - minY) / (maxY - minY)) * height;
+      const circle = svgNode('circle', {
+        cx: x.toFixed(2), cy: y.toFixed(2), r: kind === 'Player' || kind === 'PalBox' ? 3.6 : 2.2,
+        fill: WORLD_COLORS[kind] || WORLD_COLORS.NPC, opacity: kind === 'WildPal' ? .45 : .75,
+      });
+      const title = svgNode('title', {}, (WORLD_LABELS[kind] || kind || 'Actor') + ' / ' + (p.nickname || p.guild_name || '名称なし') + ' / X ' + Number(p.x).toFixed(0) + ' Y ' + Number(p.y).toFixed(0));
+      circle.append(title);
+      svg.append(circle);
+    }
+  }
+  document.getElementById('world-point-note').textContent = noteParts.join(' / ');
+}
+
+/* キャリブレーション用デバッグ: DevTools で window.worldMapDebug = true にすると
+   マップクリック位置のワールド座標とゲーム内マップ座標を console に出力する */
+function debugWorldMapClick(event) {
+  if (!window.worldMapDebug || !worldMapGeometry) return;
+  const svg = document.getElementById('world-map');
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return;
+  const pt = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+  const g = worldMapGeometry, w = WORLD_MAP_CONFIG.world;
+  let u = (pt.x - g.imgX) / g.imgW, v = (pt.y - g.imgY) / g.imgH;
+  if (WORLD_MAP_CONFIG.invertU) u = 1 - u;
+  if (WORLD_MAP_CONFIG.invertV) v = 1 - v;
+  const worldY = w.minY + u * (w.maxY - w.minY);
+  const worldX = w.minX + (1 - v) * (w.maxX - w.minX);
+  const mapCoords = worldToGameMapCoords(worldX, worldY);
+  console.log('[worldMapDebug] world X=' + worldX.toFixed(0) + ' Y=' + worldY.toFixed(0)
+    + ' / ゲーム内マップ座標 (' + mapCoords.x + ', ' + mapCoords.y + ')');
+}
+
+function renderWorldLegend() {
+  const wrap = document.getElementById('world-legend');
+  clear(wrap);
+  for (const [kind, label] of Object.entries(WORLD_LABELS)) {
+    wrap.append(el('span', { class: 'legend-item' }, [
+      el('span', { class: 'legend-dot', style: 'background:' + WORLD_COLORS[kind] }),
+      el('span', { text: label }),
+    ]));
+  }
+}
+
+/* ─── メトリクス・セッション履歴 ───────────────────────────────── */
+async function loadHistory() {
+  if (historyBusy) return;
+  historyBusy = true;
+  lastHistoryAt = Date.now();
+  const hours = Math.max(1, parseInt(document.getElementById('history-hours').value) || 24);
+  try {
+    const [metricsResp, sessionsResp, summaryResp] = await Promise.all([
+      api('GET', '/api/history/metrics?hours=' + hours + '&limit=600'),
+      api('GET', '/api/history/sessions?limit=100&active_only=false'),
+      api('GET', '/api/history/summary?hours=' + hours),
+    ]);
+    const metrics = Array.isArray(metricsResp) ? metricsResp : (metricsResp.metrics || metricsResp.samples || []);
+    const sessions = Array.isArray(sessionsResp) ? sessionsResp : (sessionsResp.sessions || []);
+    renderHistorySummary(summaryResp || {});
+    hideChartHover();  // 再描画中に古いツールチップが残らないようにする
+    lastHistoryRows = metrics;  // テーマ切替時の再描画用に保持
+    renderHistoryCharts(metrics);
+    renderSessions(sessions);
+    document.getElementById('history-updated').textContent = '更新 ' + new Date().toLocaleTimeString('ja-JP');
+  } catch(e) {
+    document.getElementById('history-updated').textContent = '更新失敗: ' + e.message;
+  } finally {
+    historyBusy = false;
+  }
+}
+
+function renderHistorySummary(summary) {
+  const avgFps = firstValue(summary, ['avg_fps', 'average_fps', 'serverfps_avg']);
+  const avgFt = firstValue(summary, ['avg_frame_time_ms', 'avg_frametime', 'average_frametime', 'serverframetime_avg']);
+  const averageFps = finiteNumber(avgFps);
+  const averageFrameTime = finiteNumber(avgFt);
+  setText('history-avg-fps', averageFps === null ? null : averageFps.toFixed(1));
+  setText('history-avg-frametime', averageFrameTime === null ? null : averageFrameTime.toFixed(2));
+  setText('history-peak-players', firstValue(summary, ['peak_players', 'max_players'], 0));
+  setText('history-unique-players', firstValue(summary, ['unique_players'], 0));
+  setText('history-session-count', firstValue(summary, ['session_count', 'sessions'], 0));
+}
+
+function metricValue(row, keys) {
+  const value = firstValue(row, keys);
+  return finiteNumber(value);
+}
+
+/* CSS カスタムプロパティの現在値を取得する。
+   SVG の stroke 属性には var() を直接書けないため、描画時に実値へ解決する。 */
+function themeColor(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+/* 履歴グラフで使う系列キー定義。テーマ切替時の再描画でも使い回す。 */
+const PLAYER_SERIES_KEYS = ['current_players', 'currentplayernum', 'player_count', 'players'];
+
+function renderHistoryCharts(rows) {
+  renderLineChart('chart-fps', rows, [{ keys: ['server_fps', 'serverfps', 'fps'], color: themeColor('--chart-1', '#16a34a'), label: 'FPS', digits: 1 }], { floor: 0 });
+  renderLineChart('chart-frametime', rows, [{ keys: ['server_frame_time_ms', 'serverframetime', 'frametime'], color: themeColor('--chart-2', '#d97706'), label: 'ms', digits: 2 }], { floor: 0 });
+  renderLineChart('chart-players', rows, [{ keys: PLAYER_SERIES_KEYS, color: themeColor('--chart-3', '#7c3aed'), label: '人', digits: 0 }], { floor: 0 });
+  renderLineChart('chart-system', rows, [
+    { keys: ['system_cpu_percent', 'cpu_percent', 'system_cpu'], color: themeColor('--chart-1', '#16a34a'), label: 'CPU', digits: 1 },
+    { keys: ['system_memory_percent', 'system_mem_percent', 'mem_percent', 'system_memory'], color: themeColor('--chart-4', '#dc2626'), label: 'メモリ', digits: 1 },
+  ], { floor: 0, ceiling: 100 });
+}
+
+/* テーマ切替時に、実値で焼き込んだ系列色を描き直す。
+   直近に描画したデータを保持しておき、API を再取得せずに塗り替える。 */
+let lastHistoryRows = null;
+let lastDashChartRows = null;
+function redrawThemedCharts() {
+  if (lastHistoryRows) renderHistoryCharts(lastHistoryRows);
+  if (lastDashChartRows) renderDashboardCharts(lastDashChartRows);
+}
+
+/* ─── スパークライン（軸・グリッド・凡例・ホバーなしの小型トレンド線）
+   renderLineChart は 600x190 固定で軸やラベルを必ず描くため、KPI カード内の
+   120x40 には流用せず専用関数にする。色は CSS クラス側で指定するので、
+   テーマ切替時に再描画しなくても自動で追従する。 */
+function renderSparkline(id, rows, keys, options = {}) {
+  const svg = document.getElementById(id);
+  if (!svg) return;
+  clear(svg);
+  const width = 120, height = 40, pad = 3;
+  const values = (rows || []).map(row => metricValue(row, keys)).filter(v => v !== null);
+  if (values.length < 2) {
+    svg.append(svgNode('line', { x1: pad, y1: height / 2, x2: width - pad, y2: height / 2, class: 'spark-empty' }));
+    return;
+  }
+  const floor = options.floor !== undefined ? options.floor : Math.min(...values);
+  let ceiling = options.ceiling !== undefined ? options.ceiling : Math.max(...values);
+  if (ceiling === floor) ceiling = floor + 1;
+  const plotW = width - pad * 2, plotH = height - pad * 2;
+  const pts = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * plotW;
+    const clamped = Math.max(floor, Math.min(ceiling, v));
+    const y = pad + (ceiling - clamped) / (ceiling - floor) * plotH;
+    return x.toFixed(2) + ',' + y.toFixed(2);
+  });
+  svg.append(svgNode('polygon', {
+    points: pad + ',' + (height - pad) + ' ' + pts.join(' ') + ' ' + (width - pad) + ',' + (height - pad),
+    class: 'spark-area',
+  }));
+  svg.append(svgNode('polyline', { points: pts.join(' '), class: 'spark-line' }));
+  const last = pts[pts.length - 1].split(',');
+  svg.append(svgNode('circle', { cx: last[0], cy: last[1], r: 2, class: 'spark-dot' }));
+}
+
+/* ダッシュボードの推移グラフとスパークラインをまとめて描く。 */
+function renderDashboardCharts(rows) {
+  renderLineChart('dash-chart-players', rows,
+    [{ keys: PLAYER_SERIES_KEYS, color: themeColor('--chart-1', '#16a34a'), label: '人', digits: 0 }],
+    { floor: 0 });
+  renderSparkline('spark-cpu', rows, ['system_cpu_percent', 'cpu_percent', 'system_cpu'], { floor: 0, ceiling: 100 });
+  renderSparkline('spark-mem', rows, ['system_memory_percent', 'system_mem_percent', 'mem_percent', 'system_memory'], { floor: 0, ceiling: 100 });
+  renderSparkline('spark-disk', rows, ['system_disk_percent', 'disk_percent', 'system_disk'], { floor: 0, ceiling: 100 });
+}
+
+/* 履歴 API は重いので、1秒ポーリングとは別に長い間隔で取得する。 */
+async function loadDashboardCharts() {
+  if (dashChartBusy) return;
+  dashChartBusy = true;
+  try {
+    const hours = Math.max(1, parseInt(document.getElementById('dash-chart-hours').value) || 24);
+    const resp = await api('GET', '/api/history/metrics?hours=' + hours + '&limit=240');
+    const rows = Array.isArray(resp) ? resp : (resp.metrics || resp.samples || []);
+    lastDashChartRows = rows;  // テーマ切替時の再描画用に保持
+    renderDashboardCharts(rows);
+    lastDashChartAt = Date.now();
+  } catch (e) {
+    /* グラフが描けなくても KPI 表示は続けたいので、ここでは通知しない */
+  } finally {
+    dashChartBusy = false;
+  }
+}
+
+/* チャートID → ホバー用ヒットデータ（renderLineChart が描画のたびに差し替える） */
+const chartHoverData = {};
+
+function renderLineChart(id, rows, series, options = {}) {
+  const svg = document.getElementById(id);
+  clear(svg);
+  chartHoverData[id] = null;
+  const width = 600, height = 190, left = 42, right = 12, top = 12, bottom = 28;
+  const plotW = width - left - right, plotH = height - top - bottom;
+  const usableRows = (rows || []).filter(row => series.some(s => metricValue(row, s.keys) !== null));
+  if (!usableRows.length) {
+    svg.append(svgNode('text', { x: width / 2, y: height / 2, 'text-anchor': 'middle', class: 'chart-label' }, 'まだ履歴データがありません'));
+    return;
+  }
+  const values = [];
+  usableRows.forEach(row => series.forEach(s => { const v = metricValue(row, s.keys); if (v !== null) values.push(v); }));
+  let minV = options.floor !== undefined ? options.floor : Math.min(...values);
+  let maxV = options.ceiling !== undefined ? options.ceiling : Math.max(...values);
+  if (minV === maxV) maxV = minV + 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = top + (plotH * i / 4);
+    svg.append(svgNode('line', { x1: left, y1: y, x2: width - right, y2: y, class: 'chart-gridline' }));
+    svg.append(svgNode('text', { x: left - 5, y: y + 3, 'text-anchor': 'end', class: 'chart-label' }, (maxV - (maxV - minV) * i / 4).toFixed(maxV <= 10 ? 1 : 0)));
+  }
+  svg.append(svgNode('line', { x1: left, y1: top, x2: left, y2: height - bottom, class: 'chart-axis' }));
+  svg.append(svgNode('line', { x1: left, y1: height - bottom, x2: width - right, y2: height - bottom, class: 'chart-axis' }));
+  // 行ごとの描画座標と系列値をまとめて構築し、折れ線描画とホバー判定の両方で使う
+  const hoverPoints = usableRows.map((row, index) => ({
+    x: left + (usableRows.length === 1 ? plotW / 2 : index / (usableRows.length - 1) * plotW),
+    time: firstValue(row, ['sampled_at', 'captured_at', 'timestamp', 'time']),
+    values: series.map(s => {
+      const value = metricValue(row, s.keys);
+      if (value === null) return { label: s.label, color: s.color, digits: s.digits, value: null, y: null };
+      const plottedValue = Math.max(minV, Math.min(maxV, value));
+      return { label: s.label, color: s.color, digits: s.digits, value, y: top + (maxV - plottedValue) / (maxV - minV) * plotH };
+    }),
+  }));
+  series.forEach((s, seriesIndex) => {
+    const coords = [];
+    hoverPoints.forEach(p => {
+      const v = p.values[seriesIndex];
+      if (v.value === null) return;
+      coords.push(p.x.toFixed(2) + ',' + v.y.toFixed(2));
+    });
+    if (coords.length) svg.append(svgNode('polyline', { points: coords.join(' '), fill: 'none', stroke: s.color, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
+  });
+  const firstTime = hoverPoints[0].time;
+  const lastTime = hoverPoints[hoverPoints.length - 1].time;
+  if (firstTime) svg.append(svgNode('text', { x: left, y: height - 8, class: 'chart-label' }, formatChartTime(firstTime)));
+  if (lastTime) svg.append(svgNode('text', { x: width - right, y: height - 8, 'text-anchor': 'end', class: 'chart-label' }, formatChartTime(lastTime)));
+  series.forEach((s, i) => {
+    svg.append(svgNode('line', { x1: left + i * 90, y1: 8, x2: left + 15 + i * 90, y2: 8, stroke: s.color, 'stroke-width': 3 }));
+    svg.append(svgNode('text', { x: left + 20 + i * 90, y: 11, class: 'chart-label' }, s.label));
+  });
+  // ホバー描画専用レイヤー（ホバー時はこの中身だけ入れ替え、チャート全体は再描画しない）
+  svg.append(svgNode('g', { class: 'chart-hover-layer' }));
+  chartHoverData[id] = { left, top, plotW, height, bottom, points: hoverPoints };
+}
+
+function formatChartTime(value) {
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? String(value) : dt.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/* ─── チャートホバーツールチップ（CloudWatch メトリクス風） ─────── */
+let chartTooltipEl = null;
+function ensureChartTooltip() {
+  if (!chartTooltipEl) {
+    chartTooltipEl = el('div', { class: 'chart-tooltip' });
+    document.body.append(chartTooltipEl);
+  }
+  return chartTooltipEl;
+}
+
+function handleChartHover(event) {
+  const svg = event.currentTarget;
+  const data = chartHoverData[svg.id];
+  if (!data || !data.points.length) { hideChartHover(svg.id); return; }
+  // SVG は width:100% でレターボックスされ得るため、CTM の逆行列で正確にユーザー座標へ変換する
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return;
+  const pt = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+  if (pt.x < data.left - 6 || pt.x > data.left + data.plotW + 6) { hideChartHover(svg.id); return; }
+  // X は等間隔配置なので最近傍行はインデックス逆算で O(1)（1点のみは除算せず固定）
+  const n = data.points.length;
+  const index = n === 1 ? 0 : Math.max(0, Math.min(n - 1, Math.round((pt.x - data.left) / data.plotW * (n - 1))));
+  const point = data.points[index];
+  const layer = svg.querySelector('.chart-hover-layer');
+  if (layer) {
+    clear(layer);
+    layer.append(svgNode('line', { x1: point.x, y1: data.top, x2: point.x, y2: data.height - data.bottom, class: 'chart-hover-line' }));
+    for (const v of point.values) {
+      if (v.value === null) continue;
+      layer.append(svgNode('circle', { cx: point.x, cy: v.y, r: 3.5, fill: v.color, class: 'chart-hover-dot' }));
+    }
+  }
+  const tip = ensureChartTooltip();
+  clear(tip);
+  tip.append(el('div', { class: 'chart-tooltip-time', text: point.time ? formatChartTime(point.time) : '–' }));
+  for (const v of point.values) {
+    tip.append(el('div', { class: 'chart-tooltip-row' }, [
+      el('span', { class: 'chart-tip-chip', style: 'background:' + v.color }),
+      el('span', { text: v.label }),
+      el('span', { class: 'chart-tip-value', text: v.value === null ? '–' : v.value.toFixed(v.digits ?? 1) }),
+    ]));
+  }
+  // 実測サイズで右端・下端のはみ出しを反転配置で回避
+  tip.style.display = 'block';
+  let tx = event.clientX + 14, ty = event.clientY + 14;
+  if (tx + tip.offsetWidth > window.innerWidth - 4) tx = event.clientX - 14 - tip.offsetWidth;
+  if (ty + tip.offsetHeight > window.innerHeight - 4) ty = event.clientY - 14 - tip.offsetHeight;
+  tip.style.left = tx + 'px';
+  tip.style.top = ty + 'px';
+}
+
+function hideChartHover(svgId) {
+  if (svgId) {
+    const svg = document.getElementById(svgId);
+    const layer = svg && svg.querySelector('.chart-hover-layer');
+    if (layer) clear(layer);
+  } else {
+    document.querySelectorAll('.history-chart .chart-hover-layer').forEach(layer => clear(layer));
+  }
+  if (chartTooltipEl) chartTooltipEl.style.display = 'none';
+}
+
+function renderSessions(sessions) {
+  const tbody = document.getElementById('history-session-tbody');
+  clear(tbody);
+  if (!sessions.length) {
+    tbody.append(el('tr', {}, [el('td', { text: 'まだセッション履歴がありません', attrs: { colspan: '6' }, style: 'text-align:center;color:var(--faint);padding:20px;' })]));
+    return;
+  }
+  sessions.forEach(s => {
+    const stale = s.stale === true;
+    const active = s.active === true || (s.active === undefined && !s.ended_at && !stale);
+    const duration = firstValue(s, ['duration_seconds', 'duration'], 0);
+    tbody.append(el('tr', {}, [
+      el('td', { text: s.name || '(不明)', style: 'font-weight:600' }),
+      el('td', { text: s.account_name || s.accountName || '', style: 'color:var(--faint);font-size:12px' }),
+      el('td', { class: 'num', text: s.started_at ? new Date(s.started_at).toLocaleString('ja-JP') : '–', style: 'font-size:11.5px' }),
+      el('td', { class: 'num', text: s.ended_at ? new Date(s.ended_at).toLocaleString('ja-JP') : '–', style: 'font-size:11.5px' }),
+      el('td', { class: 'num', text: fmtUptime(Math.max(0, Math.floor(Number(duration) || 0))) }),
+      el('td', {}, [el('span', {
+        class: 'status-tag ' + (active ? 'same' : 'idle'),
+        text: active ? 'オンライン' : (stale ? '確認不能' : '終了'),
+      })]),
+    ]));
+  });
+}
+
+/* ─── コマンド（DOM 構築: XSS 安全）─────────────────────────────── */
+const COMMANDS = [
+  { id: 'info',    name: '/Info',        desc: 'サーバー情報を表示します', type: 'get', endpoint: '/api/server/info', fields: [] },
+  { id: 'players', name: '/ShowPlayers', desc: '接続中の全プレイヤー一覧を表示します', type: 'get', endpoint: '/api/server/players', fields: [] },
+  { id: 'broadcast', name: '/Broadcast', desc: '全プレイヤーにメッセージを送信します', type: 'post', endpoint: '/api/server/announce',
+    fields: [{ id: 'msg', placeholder: 'メッセージ' }], body: f => ({ message: f.msg }) },
+  { id: 'kick', name: '/KickPlayer', desc: '指定したプレイヤーをキックします', type: 'post', endpoint: '/api/server/kick',
+    fields: [{ id: 'uid', placeholder: 'User ID' }, { id: 'reason', placeholder: '理由（任意）' }], body: f => ({ user_id: f.uid, message: f.reason || '' }) },
+  { id: 'ban', name: '/BanPlayer', desc: '指定したプレイヤーをバンします', type: 'post', endpoint: '/api/server/ban',
+    fields: [{ id: 'uid', placeholder: 'User ID' }, { id: 'reason', placeholder: '理由（任意）' }], body: f => ({ user_id: f.uid, message: f.reason || '' }) },
+  { id: 'unban', name: '/UnBanPlayer', desc: 'バンを解除します', type: 'post', endpoint: '/api/server/unban',
+    fields: [{ id: 'uid', placeholder: 'User ID' }], body: f => ({ user_id: f.uid }) },
+  { id: 'save', name: '/Save', desc: 'ワールドデータを保存します', type: 'post', endpoint: '/api/server/save', fields: [] },
+  { id: 'shutdown', name: '/Shutdown', desc: '指定秒数後にサーバーをシャットダウンします', type: 'post', endpoint: '/api/server/shutdown',
+    fields: [{ id: 'wait', placeholder: '待機秒数（例: 60）' }, { id: 'smsg', placeholder: 'メッセージ（任意）' }],
+    body: f => ({ wait_time: parseInt(f.wait) || 60, message: f.smsg || '' }) },
+  { id: 'stop', name: '/DoExit', desc: 'サーバーを即座に強制停止します（データ損失の危険あり）', type: 'post', endpoint: '/api/server/stop', fields: [], dangerous: true },
+];
+
+function buildCommandList() {
+  const wrap = document.getElementById('cmd-list');
+  clear(wrap);
+  for (const cmd of COMMANDS) {
+    const inputs = {};
+    const formChildren = [];
+    for (const f of cmd.fields) {
+      const input = el('input', { class: 'input', attrs: { type: 'text', placeholder: f.placeholder } });
+      inputs[f.id] = input;
+      formChildren.push(input);
+    }
+    const resultBox = el('div', { class: 'cmd-result' });
+    const btnCls = cmd.dangerous ? 'btn-err' : cmd.type === 'get' ? 'btn-ghost' : 'btn-primary';
+    const btnTxt = cmd.type === 'get' ? '取得' : '実行';
+    formChildren.push(el('button', { class: 'btn ' + btnCls + ' btn-sm', text: btnTxt, on: { click: () => runCmd(cmd, inputs, resultBox) } }));
+    const item = el('div', { class: 'cmd-item' }, [
+      el('div', { class: 'cmd-meta' }, [
+        el('div', { class: 'cmd-name', text: cmd.name }),
+        el('div', { class: 'cmd-desc', text: cmd.desc }),
+        resultBox,
+      ]),
+      el('div', { class: 'cmd-form' }, formChildren),
+    ]);
+    wrap.append(item);
+  }
+}
+
+async function runCmd(cmd, inputs, resultBox) {
+  resultBox.style.display = 'none';
+  resultBox.className = 'cmd-result';
+  try {
+    let result;
+    if (cmd.type === 'get') {
+      result = await api('GET', cmd.endpoint);
+    } else {
+      const fields = {};
+      for (const [k, input] of Object.entries(inputs)) fields[k] = input.value;
+      if (cmd.dangerous && !confirm(cmd.name + ' を実行しますか？')) return;
+      result = await api('POST', cmd.endpoint, cmd.body ? cmd.body(fields) : undefined);
+    }
+    resultBox.classList.add('ok');
+    resultBox.style.display = 'block';
+    resultBox.textContent = result != null ? (typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)) : 'OK';
+    toast(cmd.name + ' を実行しました', 'success');
+  } catch(e) {
+    resultBox.classList.add('err');
+    resultBox.style.display = 'block';
+    resultBox.textContent = 'エラー: ' + e.message;
+    toast('失敗: ' + e.message, 'error');
+  }
+}
+
+/* ─── INI（DOM 構築: XSS 安全）──────────────────────────────────── */
+async function loadIni() {
+  const notice = document.getElementById('ini-notice');
+  notice.style.display = 'none';
+  iniValues = {}; iniReadonly = true; iniSecretKeys = [];
+  clear(document.getElementById('ini-tbody'));
+  loadConfigDiff();
+  try {
+    const resp = await api('GET', '/api/ini/settings');
+    iniValues     = resp.values || {};
+    iniReadonly   = !!resp.readonly;
+    iniSecretKeys = resp.secret_keys || [];
+    if (resp.source === 'rest') {
+      notice.textContent = 'INI ファイルから設定を読み取れなかったため、REST API から取得した現在の稼働値を表示しています（読み取り専用）。';
+      notice.style.display = 'block';
+    }
+    renderIni(iniValues);
+  } catch(e) { toast('設定取得失敗: ' + e.message, 'error'); }
+}
+
+function renderIni(obj) {
+  const tbody = document.getElementById('ini-tbody');
+  clear(tbody);
+  const editable = !iniReadonly;
+  for (const [k, v] of Object.entries(obj)) {
+    const isSecret = iniSecretKeys.includes(k);
+    const keyTd = el('td', { class: 'num', text: k, style: 'font-size:12px;color:var(--accent)' });
+    let valTd;
+    if (isSecret) {
+      const label = v ? '設定済み（表示不可）' : '（未設定）';
+      const children = [el('span', { class: 'secret-tag', text: label })];
+      if (editable) {
+        children.push(el('button', { class: 'btn btn-ghost btn-sm', text: '値を設定', style: 'margin-left:8px', on: { click: () => openIniEdit(k, '') } }));
+      }
+      valTd = el('td', {}, children);
+    } else if (editable) {
+      valTd = el('td', {}, [
+        el('span', { class: 'editable', text: String(v), attrs: { title: 'クリックで編集' }, on: { click: () => openIniEdit(k, String(v)) } }),
+      ]);
+    } else {
+      valTd = el('td', { text: String(v) });
+    }
+    tbody.append(el('tr', {}, [keyTd, valTd]));
+  }
+}
+
+function filterIni(q) {
+  const ql = q.toLowerCase();
+  const filtered = Object.fromEntries(Object.entries(iniValues).filter(([k, v]) =>
+    k.toLowerCase().includes(ql) || String(v).toLowerCase().includes(ql)
+  ));
+  renderIni(filtered);
+}
+
+let iniEditKey = null;
+function openIniEdit(key, val) {
+  if (iniReadonly) return;
+  iniEditKey = key;
+  document.getElementById('ini-modal-key').textContent = key;
+  document.getElementById('ini-modal-val').value = val;
+  document.getElementById('ini-modal').classList.remove('hidden');
+}
+function closeIniModal() { document.getElementById('ini-modal').classList.add('hidden'); iniEditKey = null; }
+async function saveIniVal() {
+  if (!iniEditKey) return;
+  const val = document.getElementById('ini-modal-val').value;
+  const key = iniEditKey;
+  try {
+    await api('PATCH', '/api/ini/settings', { values: { [key]: val } });
+    toast(key + ' を保存しました（再起動で反映）', 'success');
+    closeIniModal();
+    loadIni();
+  } catch(e) { toast('保存失敗: ' + e.message, 'error'); }
+}
+
+async function loadConfigDiff() {
+  if (configDiffBusy) return;
+  configDiffBusy = true;
+  const summary = document.getElementById('config-diff-summary');
+  const tbody = document.getElementById('config-diff-tbody');
+  clear(tbody);
+  clear(summary);
+  summary.append(el('span', { class: 'note', text: '比較中...' }));
+  try {
+    const data = await api('GET', '/api/maintenance/config-diff');
+    const items = data.items || data.differences || [];
+    const counts = data.counts || {};
+    const pendingCount = Number(firstValue(counts, ['pending'], items.filter(i => i.status === 'pending').length)) || 0;
+    const fileOnly = Number(firstValue(counts, ['file_only'], items.filter(i => i.status === 'file_only').length)) || 0;
+    const runtimeOnly = Number(firstValue(counts, ['runtime_only'], items.filter(i => i.status === 'runtime_only').length)) || 0;
+    clear(summary);
+    summary.append(
+      el('span', { class: 'status-tag ' + (pendingCount || fileOnly || runtimeOnly ? 'pending' : 'same'), text: pendingCount || fileOnly || runtimeOnly ? '差分あり' : '一致' }),
+      el('span', { text: ' 変更待ち ' + pendingCount + '件 / ファイルのみ ' + fileOnly + '件 / 稼働値のみ ' + runtimeOnly + '件', style: 'margin-left:8px;font-size:13px;' }),
+    );
+    const differences = items.filter(item => item.status !== 'same');
+    if (!differences.length) {
+      tbody.append(el('tr', {}, [el('td', { text: '保存値と稼働値に差分はありません', attrs: { colspan: '4' }, style: 'text-align:center;color:var(--faint);padding:20px;' })]));
+      return;
+    }
+    differences.forEach(item => {
+      const status = String(item.status || 'pending');
+      const labels = { pending: '再起動待ち', file_only: 'ファイルのみ', runtime_only: '稼働値のみ' };
+      tbody.append(el('tr', {}, [
+        el('td', { class: 'num', text: item.key || '', style: 'font-size:12px;color:var(--accent)' }),
+        el('td', { text: formatConfigValue(item.file_value), style: 'word-break:break-all' }),
+        el('td', { text: formatConfigValue(item.runtime_value), style: 'word-break:break-all' }),
+        el('td', {}, [el('span', { class: 'status-tag ' + status.replaceAll('_', '-'), text: labels[status] || status })]),
+      ]));
+    });
+  } catch(e) {
+    clear(summary);
+    summary.append(el('span', { class: 'status-tag failed', text: '比較失敗' }), el('span', { text: ' ' + e.message, style: 'margin-left:8px;font-size:13px;' }));
+    tbody.append(el('tr', {}, [el('td', { text: '稼働値を取得できません', attrs: { colspan: '4' }, style: 'text-align:center;color:var(--faint);padding:20px;' })]));
+  } finally {
+    configDiffBusy = false;
+  }
+}
+
+function formatConfigValue(value) {
+  if (value === null || value === undefined) return '–';
+  if (typeof value === 'object') {
+    try { return JSON.stringify(value); } catch(e) { return String(value); }
+  }
+  return String(value);
+}
+
+/* ─── 操作 ───────────────────────────────────────────────────────── */
+async function doAnnounce() {
+  const msg = document.getElementById('announce-msg').value.trim();
+  if (!msg) { toast('メッセージを入力してください', 'error'); return; }
+  try { await api('POST', '/api/server/announce', { message: msg }); toast('アナウンスを送信しました', 'success'); document.getElementById('announce-msg').value = ''; }
+  catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+async function doSave() {
+  try { await api('POST', '/api/server/save'); toast('ワールドを保存しました', 'success'); }
+  catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+function confirmShutdown() {
+  const wait = document.getElementById('shutdown-wait').value;
+  const msg  = document.getElementById('shutdown-msg').value;
+  openModal('シャットダウン確認', wait + ' 秒後にシャットダウンします。よろしいですか？', async () => {
+    try { await api('POST', '/api/server/shutdown', { wait_time: parseInt(wait), message: msg }); toast('シャットダウンを開始しました', 'success'); }
+    catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+function confirmStop() {
+  openModal('強制停止確認', 'サーバーを即座に強制停止します。未保存データは失われます。', async () => {
+    try { await api('POST', '/api/server/stop'); toast('強制停止しました', 'success'); }
+    catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+async function doUnban() {
+  const id = document.getElementById('unban-userid').value.trim();
+  if (!id) { toast('User ID を入力してください', 'error'); return; }
+  try { await api('POST', '/api/server/unban', { user_id: id }); toast('アンバンしました', 'success'); document.getElementById('unban-userid').value = ''; }
+  catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+
+/* ─── サーバー終了日時 ───────────────────────────────────────────── */
+function submitShutdownSchedule() {
+  const dt = document.getElementById('shutdown-schedule-dt').value;
+  if (!dt) { toast('日時を選択してください', 'error'); return; }
+  const label = document.getElementById('shutdown-schedule-label').value.trim() || 'サーバー終了';
+  openModal('サーバー終了日時の設定', 'この日時に自動でサーバーを停止します。既存の設定があれば上書きします。よろしいですか？', async () => {
+    try {
+      await api('POST', '/api/shutdown-schedule/', { shutdown_at: dt, label });
+      toast('サーバー終了日時を設定しました', 'success');
+      loadShutdownScheduleCard();
+      loadShutdownBanner();
+    } catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+
+function clearShutdownSchedule() {
+  openModal('解除確認', 'サーバー終了日時の設定を解除しますか？', async () => {
+    try {
+      await api('DELETE', '/api/shutdown-schedule/');
+      toast('解除しました', 'success');
+      loadShutdownScheduleCard();
+      loadShutdownBanner();
+    } catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+
+async function loadShutdownScheduleCard() {
+  try {
+    const d = await api('GET', '/api/shutdown-schedule/');
+    const stateEl = document.getElementById('shutdown-schedule-state');
+    const detailEl = document.getElementById('shutdown-schedule-detail');
+    if (d.state === 'none') {
+      stateEl.className = 'status-tag idle';
+      stateEl.textContent = '未設定';
+      detailEl.textContent = '';
+    } else {
+      stateEl.className = 'status-tag ' + (d.state === 'reached' ? 'failed' : 'countdown');
+      stateEl.textContent = d.state === 'reached' ? '終了日時経過' : '設定済み';
+      detailEl.textContent = (d.label || '') + ': ' + new Date(d.shutdown_at).toLocaleString('ja-JP') +
+        (d.last_error ? '（エラー: ' + d.last_error + '）' : '');
+    }
+  } catch(e) {
+    document.getElementById('shutdown-schedule-detail').textContent = '状態を取得できません: ' + e.message;
+  }
+}
+const MAINTENANCE_STATE_LABELS = {
+  idle: '待機中', checking: '接続者確認中', countdown: '予告中', saving: '保存中',
+  restarting: '再起動中', updating: '更新中', verifying: '復旧確認中',
+  completed: '完了', failed: '失敗', cancelled: '中止', skipped: '省略',
+};
+
+function startMaintenance() {
+  const action = document.getElementById('maintenance-action').value;
+  const countdown = Math.max(0, Math.min(300, parseInt(document.getElementById('maintenance-countdown').value) || 0));
+  const allowPlayers = document.getElementById('maintenance-allow-players').checked;
+  const message = document.getElementById('maintenance-message').value.trim();
+  const label = action === 'update' ? 'アップデート' : '再起動';
+  const playerWarning = allowPlayers ? '接続中プレイヤーがいても続行します。' : '接続者がいる場合は開始しません。';
+  const payload = {
+    action,
+    allow_players: allowPlayers,
+    countdown_seconds: countdown,
+    message,
+  };
+  openModal('安全な' + label + 'の確認', playerWarning + ' 予告後にワールドを保存して' + label + 'します。', () => {
+    if (action === 'update') {
+      openSudoPasswordModal(payload, label);
+      return;
+    }
+    submitMaintenance(payload, label);
+  });
+}
+
+function openSudoPasswordModal(payload, label) {
+  const input = document.getElementById('sudo-password-input');
+  input.value = '';
+  pendingUpdateRequest = { payload, label };
+  document.getElementById('sudo-password-modal').classList.remove('hidden');
+  requestAnimationFrame(() => input.focus());
+}
+
+function closeSudoPasswordModal() {
+  document.getElementById('sudo-password-input').value = '';
+  document.getElementById('sudo-password-modal').classList.add('hidden');
+  pendingUpdateRequest = null;
+}
+
+function submitSudoPassword(event) {
+  event.preventDefault();
+  if (!pendingUpdateRequest) return;
+  const input = document.getElementById('sudo-password-input');
+  if (!input.value) {
+    toast('sudoパスワードを入力してください', 'error');
+    input.focus();
+    return;
+  }
+
+  const pending = pendingUpdateRequest;
+  let sudoPassword = input.value;
+  const payload = { ...pending.payload, sudo_password: sudoPassword };
+  input.value = '';
+  closeSudoPasswordModal();
+
+  // api() は最初の await より前にJSON文字列化する。直後に参照を破棄し、
+  // DOMやグローバル状態へパスワードを残さない。
+  const submission = submitMaintenance(payload, pending.label);
+  sudoPassword = '';
+  delete payload.sudo_password;
+  void submission;
+}
+
+async function submitMaintenance(payload, label) {
+  const button = document.getElementById('maintenance-start');
+  button.disabled = true;
+  try {
+    await api('POST', '/api/maintenance/jobs', payload);
+    toast(label + 'ジョブを開始しました', 'success');
+    await loadMaintenanceStatus();
+  } catch(e) {
+    toast('開始できません: ' + e.message, 'error');
+    button.disabled = false;
+  }
+}
+
+async function loadMaintenanceStatus() {
+  if (maintenanceBusy) return;
+  maintenanceBusy = true;
+  lastMaintenanceAt = Date.now();
+  try {
+    const response = await api('GET', '/api/maintenance/jobs/current');
+    const job = response.job || response;
+    renderMaintenanceStatus(job || { state: 'idle' });
+  } catch(e) {
+    const detail = document.getElementById('maintenance-detail');
+    const message = '状態を取得できません: ' + e.message;
+    if (detail && detail.textContent !== message) detail.textContent = message;
+    lastMaintenanceFingerprint = null;
+  } finally {
+    maintenanceBusy = false;
+  }
+}
+
+function renderMaintenanceStatus(job) {
+  const fingerprint = JSON.stringify([
+    job.state, job.status, job.started_at, job.finished_at, job.player_count,
+    job.remaining_seconds, job.error, job.action, job.detail, job.message,
+  ]);
+  if (fingerprint === lastMaintenanceFingerprint) return;
+  lastMaintenanceFingerprint = fingerprint;
+  const state = job.state || job.status || 'idle';
+  const stateEl = document.getElementById('maintenance-state');
+  stateEl.className = 'status-tag ' + state;
+  stateEl.textContent = MAINTENANCE_STATE_LABELS[state] || state;
+  const started = document.getElementById('maintenance-started');
+  started.textContent = job.started_at ? '開始 ' + new Date(job.started_at).toLocaleString('ja-JP') : '';
+  const details = [];
+  if (job.action) details.push('操作: ' + (job.action === 'update' ? 'アップデート' : '再起動'));
+  if (job.player_count !== undefined && job.player_count !== null) details.push('確認時プレイヤー: ' + job.player_count + '人');
+  if (job.remaining_seconds !== undefined && job.remaining_seconds !== null) details.push('残り: ' + Math.max(0, Math.ceil(job.remaining_seconds)) + '秒');
+  if (job.finished_at) details.push('終了: ' + new Date(job.finished_at).toLocaleString('ja-JP'));
+  if (job.error) details.push((state === 'skipped' ? '理由: ' : 'エラー: ') + job.error);
+  if (job.detail || job.message) details.push(String(job.detail || job.message));
+  document.getElementById('maintenance-detail').textContent = details.length ? details.join('\n') : '実行中のメンテナンスはありません。';
+  const activeStates = new Set(['checking', 'countdown', 'saving', 'restarting', 'updating', 'verifying']);
+  document.getElementById('maintenance-start').disabled = activeStates.has(state);
+  document.getElementById('maintenance-cancel').disabled = state !== 'countdown';
+  document.querySelectorAll('[data-svc="start"], [data-svc="stop"]').forEach(button => {
+    button.disabled = activeStates.has(state);
+  });
+  if (lastMaintenanceState && state !== lastMaintenanceState) {
+    if (state === 'completed') toast('メンテナンスが完了しました', 'success');
+    else if (state === 'failed') toast('メンテナンスに失敗しました: ' + (job.error || '詳細を確認してください'), 'error');
+    else if (state === 'cancelled') toast('メンテナンスを中止しました', 'info');
+    else if (state === 'skipped') toast(job.error || '直近に実行済みのため省略しました', 'info');
+  }
+  lastMaintenanceState = state;
+}
+
+async function cancelMaintenance() {
+  try {
+    await api('DELETE', '/api/maintenance/jobs/current');
+    toast('カウントダウンの中止を要求しました', 'info');
+    await loadMaintenanceStatus();
+  } catch(e) { toast('中止できません: ' + e.message, 'error'); }
+}
+async function doNotifyTest() {
+  const btn = document.getElementById('discord-test-btn');
+  btn.disabled = true;
+  try { await api('POST', '/api/system/notify-test'); toast('テスト通知を送信しました。Discord を確認してください', 'success'); }
+  catch(e) { toast('失敗: ' + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
+/* ─── スケジューラ ───────────────────────────────────────────────── */
+const selectedHours = new Set();
+
+function buildHourGrid() {
+  const grid = document.getElementById('hour-grid');
+  clear(grid);
+  for (let h = 0; h < 24; h++) {
+    const label = String(h).padStart(2, '0') + ':00';
+    grid.append(el('button', { class: 'hour-btn', text: label, attrs: { type: 'button' }, dataset: { h: String(h) }, on: { click: () => toggleHour(h) } }));
+  }
+}
+function toggleHour(h) {
+  if (selectedHours.has(h)) selectedHours.delete(h); else selectedHours.add(h);
+  document.querySelectorAll('.hour-btn').forEach(b => {
+    b.classList.toggle('selected', selectedHours.has(parseInt(b.dataset.h)));
+  });
+  const hours = [...selectedHours].sort((a,b) => a-b);
+  document.getElementById('hour-selected-note').textContent =
+    hours.length ? '選択中: ' + hours.map(h => String(h).padStart(2,'0') + ':00').join(', ') : '';
+}
+
+async function addHourSchedule() {
+  const hours = [...selectedHours].sort((a,b) => a-b);
+  if (!hours.length) { toast('時刻を1つ以上選択してください', 'error'); return; }
+  const hoursText = hours.map(h => String(h).padStart(2,'0') + ':00').join('・');
+  const label = document.getElementById('sch-label').value.trim() || ('毎日 ' + hoursText + ' 再起動');
+  const cron  = '0 ' + hours.join(',') + ' * * *';
+  try {
+    await api('POST', '/api/schedule/', { label, type: 'cron', cron });
+    toast('スケジュールを追加しました', 'success');
+    selectedHours.clear();
+    document.querySelectorAll('.hour-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('hour-selected-note').textContent = '';
+    document.getElementById('sch-label').value = '';
+    loadSchedules();
+  } catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+
+async function addOnceSchedule() {
+  const dt = document.getElementById('sch-once-dt').value;
+  if (!dt) { toast('日時を選択してください', 'error'); return; }
+  const label = document.getElementById('sch-once-label').value.trim() || '臨時再起動';
+  try {
+    await api('POST', '/api/schedule/', { label, type: 'once', run_at: dt });
+    toast('単発スケジュールを追加しました', 'success');
+    document.getElementById('sch-once-dt').value = '';
+    document.getElementById('sch-once-label').value = '';
+    loadSchedules();
+  } catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+
+async function addCronSchedule() {
+  const cron  = document.getElementById('sch-cron').value.trim();
+  const label = document.getElementById('sch-cron-label').value.trim();
+  if (!cron || !label) { toast('cron 式とラベルを入力してください', 'error'); return; }
+  try {
+    await api('POST', '/api/schedule/', { label, type: 'cron', cron });
+    toast('スケジュールを追加しました', 'success');
+    document.getElementById('sch-cron').value = '';
+    document.getElementById('sch-cron-label').value = '';
+    loadSchedules();
+  } catch(e) { toast('失敗: ' + e.message, 'error'); }
+}
+
+async function loadSchedules() {
+  const listEl = document.getElementById('schedule-list');
+  try {
+    const list = await api('GET', '/api/schedule/');
+    clear(listEl);
+    if (!list.length) { listEl.append(el('p', { class: 'note', text: '登録されたスケジュールはありません' })); return; }
+    for (const s of list) {
+      const children = [
+        el('span', { class: 'dot ' + (s.active ? 'dot-on' : 'dot-off') }),
+        el('span', { class: 's-label', text: String(s.label ?? '') }),
+        el('span', { class: 's-type', text: s.type === 'once' ? '単発' : '繰り返し' }),
+      ];
+      if (s.status === 'failed' || s.status === 'running') {
+        children.push(el('span', { class: 's-status ' + s.status, text: s.status === 'failed' ? '失敗' : '実行中' }));
+      }
+      const detailText = s.type === 'once'
+        ? (s.run_at ? new Date(s.run_at).toLocaleString('ja-JP') : '')
+        : String(s.cron ?? '');
+      children.push(el('span', { class: 's-cron', text: detailText }));
+      children.push(el('span', { class: 's-next', text: s.next_run ? '次回 ' + new Date(s.next_run).toLocaleString('ja-JP') : '–' }));
+      if (s.last_error) children.push(el('span', { class: 'note', text: s.last_error, style: 'flex-basis:100%;color:var(--err)' }));
+      children.push(el('button', { class: 'btn btn-err btn-sm', text: '削除', on: { click: () => deleteSchedule(s.id) } }));
+      listEl.append(el('div', { class: 'schedule-item' }, children));
+    }
+  } catch(e) { toast('スケジュール取得失敗: ' + e.message, 'error'); }
+}
+function deleteSchedule(id) {
+  openModal('削除確認', 'このスケジュールを削除しますか？（予告カウントダウン中なら再起動を中止します）', async () => {
+    try { await api('DELETE', '/api/schedule/' + encodeURIComponent(id)); toast('削除しました', 'success'); loadSchedules(); }
+    catch(e) { toast('失敗: ' + e.message, 'error'); }
+  });
+}
+
+/* ─── 確認モーダル ───────────────────────────────────────────────── */
+let modalCb = null;
+function openModal(title, body, cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  modalCb = cb;
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('confirm-modal').classList.add('hidden'); modalCb = null; }
+
+/* ─── ログ WebSocket ─────────────────────────────────────────────── */
+const logContainer = document.getElementById('log-container');
+let logLines = [];
+const MAX_LOG = 1000;
+
+let reconnectTimer = null;
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (autoReconnect) connectLog(); }, 3000);
+}
+function toggleLogConnect() {
+  if (ws || reconnectTimer) {
+    autoReconnect = false;
+    disconnectLog();
+  } else {
+    autoReconnect = true;
+    connectLog();
+  }
+}
+function connectLog() {
+  if (ws) return;
+  setLogState('connecting');
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const sock = new WebSocket(proto + '//' + location.host + '/ws/logs');
+  ws = sock;
+  sock.onopen = () => {
+    /* 自分が現役でなければ即閉じる（競合対策） */
+    if (ws !== sock) { sock.close(); return; }
+    setLogState('connected');
+  };
+  /* 1 本の WS をログタブのターミナルとダッシュボードのイベントログで共有する */
+  sock.onmessage = e => { appendLog(e.data); pushEventLog(e.data); };
+  sock.onclose = sock.onerror = () => {
+    /* 自分が現役のときだけグローバルを null にする */
+    if (ws === sock) ws = null;
+    /* 別の接続が既に始まっていなければ切断表示＆再接続 */
+    if (ws === null) {
+      setLogState('disconnected');
+      if (autoReconnect) scheduleReconnect();
+    }
+  };
+}
+function disconnectLog() {
+  autoReconnect = false;
+  clearTimeout(reconnectTimer); reconnectTimer = null;
+  const sock = ws; ws = null;
+  if (sock) sock.close();
+  setLogState('disconnected');
+}
+function setLogState(state) {
+  wsConnected = state === 'connected';
+  const dot = document.getElementById('log-dot');
+  const txt = document.getElementById('log-status-txt');
+  const btn = document.getElementById('log-connect-btn');
+  if (state === 'connected')    { dot.className='dot dot-on';    txt.textContent='接続中';    btn.textContent='切断'; btn.className='btn btn-err btn-sm'; }
+  else if (state==='connecting'){ dot.className='dot dot-pulse'; txt.textContent='接続中...'; btn.textContent='接続'; btn.className='btn btn-primary btn-sm'; }
+  else                          { dot.className='dot dot-off';   txt.textContent='未接続';    btn.textContent='接続'; btn.className='btn btn-primary btn-sm'; }
+  /* ダッシュボードのイベントログ側にも同じ接続状態を反映する */
+  const evtDot = document.getElementById('evt-dot');
+  const evtTxt = document.getElementById('evt-status-txt');
+  if (evtDot && evtTxt) {
+    if (state === 'connected')      { evtDot.className='dot dot-on';    evtTxt.textContent='ログ受信中'; }
+    else if (state === 'connecting'){ evtDot.className='dot dot-pulse'; evtTxt.textContent='接続中...'; }
+    else                            { evtDot.className='dot dot-off';   evtTxt.textContent='未接続'; }
+  }
+}
+/* ログターミナルへの書き込みをキューに積み、rAF でまとめて DOM に反映する。
+   ログタブが非表示のときは DOM 操作をスキップしてキューだけ保持する。 */
+let appendLogQueue = [];
+let appendLogPending = false;
+function _flushAppendLog() {
+  appendLogPending = false;
+  const lines = appendLogQueue.splice(0);
+  if (!lines.length) return;
+  const frag = document.createDocumentFragment();
+  for (const [text, classes] of lines) {
+    const line = el('div', { class: 'll', text });
+    if (classes) classes.forEach(c => line.classList.add(c));
+    frag.append(line);
+    logLines.push(line);
+  }
+  while (logLines.length > MAX_LOG) logLines.shift().remove();
+  logContainer.append(frag);
+  if (document.getElementById('log-autoscroll').checked) {
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+}
+function appendLog(text) {
+  const l = String(text).toLowerCase();
+  const extra = l.includes('error') || l.includes('fail') ? ['err']
+    : l.includes('warn') ? ['warn']
+    : String(text).startsWith('[') ? ['sys']
+    : null;
+  appendLogQueue.push([text, extra]);
+  /* ログタブが表示中の場合のみ rAF で即反映。非表示中はキューに溜めるだけ。 */
+  if (!appendLogPending && document.getElementById('tab-logs').classList.contains('active')) {
+    appendLogPending = true;
+    requestAnimationFrame(_flushAppendLog);
+  }
+}
+function clearLogs() { clear(logContainer); logLines = []; appendLogQueue = []; }
+
+/* ─── イベントログ（/ws/logs の生テキストをフロント側で構造化） ─────
+   journalctl --output=cat は MESSAGE フィールドしか出さないため、
+   行頭に systemd 由来のタイムスタンプは付かない。行内に時刻があれば
+   それを使い、無ければ受信時刻で代用する（推定であることを UI に出す）。 */
+
+/* 行頭の時刻らしき部分。ISO+Z/オフセット・[2024-05-24 14:30:45] / 14:30:45 に対応 */
+const LOG_TS_RE = /^\s*[\[(]?(\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:\d{2})?|\d{2}:\d{2}:\d{2})[\])]?\s*/;
+
+/* 上から順に判定し、最初に一致したものを採用する（既定は INFO） */
+const LOG_LEVEL_RULES = [
+  { level: 'ERROR', re: /\b(error|err|fatal|critical|crit|exception|traceback|failed|failure|panic)\b/i },
+  { level: 'WARN',  re: /\b(warn|warning|deprecated|retry|retrying|timeout|timed out)\b/i },
+  { level: 'DEBUG', re: /\b(debug|trace|verbose)\b/i },
+];
+
+/* 行内容からカテゴリを推定する。判定できない行は「システム」に寄せる。 */
+const LOG_CATEGORY_RULES = [
+  { category: 'マネージャー', re: /palworld[-_ ]?manager|uvicorn|fastapi|apscheduler|scheduler/i },
+  { category: 'アップデート', re: /palworld-update|steamcmd|app_update|update\s+(complete|start)/i },
+  { category: 'プレイヤー',   re: /\b(player|join|joined|leave|left|login|logout|connect|disconnect|kick|ban)\b/i },
+  { category: 'ワールド',     re: /\b(save|saved|saving|world|guild|basecamp)\b/i },
+  { category: 'ネットワーク', re: /\b(rest\s*api|http|socket|port|listen|address|rcon)\b/i },
+];
+
+/* 「14:30:45」だけの行は受信日の日付を補って epoch にする */
+function parseLogTimestamp(value, receivedAt) {
+  if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+    const base = new Date(receivedAt);
+    const parts = value.split(':').map(Number);
+    base.setHours(parts[0], parts[1], parts[2], 0);
+    return base.getTime();
+  }
+  /* スラッシュ区切り → ハイフン、スペース区切り → T。コンマ小数点 → ピリオド。
+     Z やオフセット（+09:00 等）は Date() がそのまま UTC として解釈するため変換不要。 */
+  const normalized = value.replace(/\//g, '-').replace(' ', 'T').replace(',', '.');
+  const dt = new Date(normalized);
+  return Number.isNaN(dt.getTime()) ? null : dt.getTime();
+}
+
+function parseLogLine(text, receivedAt) {
+  const raw = String(text);
+  let message = raw;
+  let at = receivedAt;
+  let tsSource = 'received';
+  const m = raw.match(LOG_TS_RE);
+  if (m) {
+    const parsed = parseLogTimestamp(m[1], receivedAt);
+    if (parsed !== null) { at = parsed; tsSource = 'line'; message = raw.slice(m[0].length); }
+  }
+  message = message.trim();
+  /* Manager 自身が付ける日本語の角括弧プレフィックス（例: [接続成功]）のみシステム扱い。
+     [ERROR] / [WARN] など英字タグは通常の level 判定へ流す。 */
+  if (!m && /^\[[^\x00-\x7F]+\]/.test(message)) {
+    return { at, tsSource, level: 'INFO', category: 'システム', message };
+  }
+  let level = 'INFO';
+  for (const rule of LOG_LEVEL_RULES) {
+    if (rule.re.test(message)) { level = rule.level; break; }
+  }
+  let category = 'システム';
+  for (const rule of LOG_CATEGORY_RULES) {
+    if (rule.re.test(message)) { category = rule.category; break; }
+  }
+  return { at, tsSource, level, category, message };
+}
+
+const EVENT_LOG_MAX = 500;      /* リングバッファ上限 */
+const EVENT_LOG_VISIBLE = 50;   /* 「すべて表示」OFF 時の表示件数 */
+let eventLogEntries = [];       /* 新しい順に保持 */
+let eventLogShowAll = false;
+let eventLogRenderPending = false;
+let eventLogCategories = new Set();
+
+function pushEventLog(text) {
+  const entry = parseLogLine(text, Date.now());
+  eventLogEntries.unshift(entry);
+  if (eventLogEntries.length > EVENT_LOG_MAX) eventLogEntries.length = EVENT_LOG_MAX;
+  if (!eventLogCategories.has(entry.category)) {
+    eventLogCategories.add(entry.category);
+    syncEventCategoryOptions();
+  }
+  scheduleEventLogRender();
+}
+
+/* WebSocket は高頻度で届くので、1 行ごとに再描画せず ~100ms 間引きでまとめる */
+let eventLogRenderTimer = null;
+function scheduleEventLogRender() {
+  if (eventLogRenderTimer) return;
+  eventLogRenderTimer = setTimeout(() => {
+    eventLogRenderTimer = null;
+    eventLogRenderPending = false;
+    renderEventLog();
+  }, 100);
+}
+
+/* 実際に出現したカテゴリだけを select に足す */
+function syncEventCategoryOptions() {
+  const select = document.getElementById('evt-category');
+  const current = select.value;
+  clear(select);
+  select.append(el('option', { text: 'カテゴリ: すべて', attrs: { value: '' } }));
+  for (const category of Array.from(eventLogCategories).sort()) {
+    select.append(el('option', { text: category, attrs: { value: category } }));
+  }
+  select.value = eventLogCategories.has(current) ? current : '';
+}
+
+function renderEventLog() {
+  const tbody = document.getElementById('evt-tbody');
+  const level = document.getElementById('evt-level').value;
+  const category = document.getElementById('evt-category').value;
+  const keyword = document.getElementById('evt-search').value.trim().toLowerCase();
+  const matched = eventLogEntries.filter(entry => {
+    if (level && entry.level !== level) return false;
+    if (category && entry.category !== category) return false;
+    if (keyword && !entry.message.toLowerCase().includes(keyword)) return false;
+    return true;
+  });
+  const shown = eventLogShowAll ? matched : matched.slice(0, EVENT_LOG_VISIBLE);
+  clear(tbody);
+  if (!shown.length) {
+    tbody.append(el('tr', {}, [
+      el('td', { class: 'evt-empty', text: eventLogEntries.length ? '条件に一致するログがありません' : 'ログを待機しています', attrs: { colspan: '4' } }),
+    ]));
+    return;
+  }
+  for (const entry of shown) {
+    const timeCell = el('td', {
+      class: 'evt-time' + (entry.tsSource === 'received' ? ' estimated' : ''),
+      text: new Date(entry.at).toLocaleString('ja-JP'),
+    });
+    if (entry.tsSource === 'received') timeCell.title = '受信時刻（ログ行に時刻情報がありません）';
+    tbody.append(el('tr', {}, [
+      timeCell,
+      el('td', {}, [el('span', { class: 'lv lv-' + entry.level.toLowerCase(), text: entry.level })]),
+      el('td', { text: entry.category }),
+      el('td', { class: 'evt-msg', text: entry.message }),
+    ]));
+  }
+}
+
+/* ─── イベント配線 ───────────────────────────────────────────────── */
+document.querySelectorAll('[data-svc]').forEach(btn => {
+  btn.addEventListener('click', () => confirmSvcAction(btn.dataset.svc, btn.dataset.label));
+});
+
+document.getElementById('ranking-metric').addEventListener('change', loadRanking);
+document.getElementById('ranking-csv-export').addEventListener('click', exportRankingCsv);
+document.getElementById('world-refresh').addEventListener('click', loadWorld);
+document.getElementById('world-map-filter').addEventListener('change', renderWorldMap);
+document.getElementById('world-map').addEventListener('click', debugWorldMapClick);
+document.getElementById('history-refresh').addEventListener('click', loadHistory);
+document.getElementById('history-hours').addEventListener('change', loadHistory);
+
+/* ダッシュボード */
+document.getElementById('dashboard-reload').addEventListener('click', () => {
+  lastInfoAt = 0;       /* サーバー情報の 30 秒スロットルを解除 */
+  lastDashChartAt = 0;  /* グラフのスロットルも解除 */
+  loadDashboard();
+  loadDashboardCharts();
+});
+document.getElementById('dash-chart-hours').addEventListener('change', () => {
+  lastDashChartAt = 0;
+  loadDashboardCharts();
+});
+document.getElementById('quick-save').addEventListener('click', () => {
+  openModal('ワールド保存', '現在のワールドデータを保存しますか？', doSave);
+});
+document.getElementById('quick-announce').addEventListener('click', () => {
+  /* アナウンスは本文入力が要るので、入力欄のあるサーバー操作タブへ誘導する */
+  navTo('operations');
+  const box = document.getElementById('announce-msg');
+  if (box) requestAnimationFrame(() => box.focus());
+});
+
+/* イベントログ（絞り込みはすべてフロント側で処理する） */
+document.getElementById('evt-level').addEventListener('change', renderEventLog);
+document.getElementById('evt-category').addEventListener('change', renderEventLog);
+document.getElementById('evt-search').addEventListener('input', renderEventLog);
+document.getElementById('evt-clear').addEventListener('click', () => {
+  /* イベントログ表だけを消す。ログタブのターミナルはそのまま残す。 */
+  eventLogEntries = [];
+  renderEventLog();
+});
+document.getElementById('evt-toggle-all').addEventListener('click', e => {
+  eventLogShowAll = !eventLogShowAll;
+  e.currentTarget.setAttribute('aria-pressed', String(eventLogShowAll));
+  e.currentTarget.textContent = eventLogShowAll ? '最新のみ' : 'すべて表示';
+  renderEventLog();
+});
+
+/* チャートホバー（Pointer Events でマウス・タッチ両対応。リスナーは SVG に1回だけ登録し、
+   再描画では chartHoverData の差し替えのみ行う） */
+document.querySelectorAll('.history-chart').forEach(svg => {
+  svg.addEventListener('pointermove', handleChartHover);
+  svg.addEventListener('pointerdown', handleChartHover);
+  svg.addEventListener('pointerleave', () => hideChartHover(svg.id));
+  svg.addEventListener('pointercancel', () => hideChartHover(svg.id));
+});
+
+document.getElementById('ini-refresh').addEventListener('click', loadIni);
+document.getElementById('config-diff-refresh').addEventListener('click', loadConfigDiff);
+document.getElementById('ini-filter').addEventListener('input', e => filterIni(e.target.value));
+document.getElementById('ini-modal-cancel').addEventListener('click', closeIniModal);
+document.getElementById('ini-modal-save').addEventListener('click', saveIniVal);
+
+document.getElementById('maintenance-start').addEventListener('click', startMaintenance);
+document.getElementById('maintenance-cancel').addEventListener('click', cancelMaintenance);
+document.getElementById('op-announce').addEventListener('click', doAnnounce);
+document.getElementById('op-save').addEventListener('click', doSave);
+document.getElementById('op-shutdown').addEventListener('click', confirmShutdown);
+document.getElementById('op-stop').addEventListener('click', confirmStop);
+document.getElementById('shutdown-schedule-set').addEventListener('click', submitShutdownSchedule);
+document.getElementById('shutdown-schedule-clear').addEventListener('click', clearShutdownSchedule);
+document.getElementById('op-unban').addEventListener('click', doUnban);
+document.getElementById('discord-test-btn').addEventListener('click', doNotifyTest);
+
+document.getElementById('schedule-refresh').addEventListener('click', loadSchedules);
+document.getElementById('sch-add-hour').addEventListener('click', addHourSchedule);
+document.getElementById('sch-add-once').addEventListener('click', addOnceSchedule);
+document.getElementById('sch-add-cron').addEventListener('click', addCronSchedule);
+
+document.getElementById('log-connect-btn').addEventListener('click', toggleLogConnect);
+document.getElementById('log-clear-btn').addEventListener('click', clearLogs);
+
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-ok').addEventListener('click', () => { const cb = modalCb; closeModal(); if (cb) cb(); });
+document.getElementById('sudo-password-cancel').addEventListener('click', closeSudoPasswordModal);
+document.getElementById('sudo-password-form').addEventListener('submit', submitSudoPassword);
+
+document.getElementById('player-modal-cancel').addEventListener('click', closePlayerModal);
+document.getElementById('player-modal-ok').addEventListener('click', execPlayerAction);
+
+/* ─── テーマ切替 ─────────────────────────────────────────────────── */
+const THEME_KEY = 'pal_theme';
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(THEME_KEY, t);
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  hideChartHover();
+  /* 折れ線の系列色は SVG 属性に実値で焼き込まれているため、
+     CSS 変数の切替だけでは追従しない。明示的に描き直す。 */
+  redrawThemedCharts();
+});
+
+/* ─── パンくずリスト ─────────────────────────────────────────────── */
+const TAB_LABELS = {
+  dashboard: 'ダッシュボード',
+  players: 'プレイヤー',
+  ranking: 'ランキング',
+  world: 'ワールド状況',
+  history: '履歴',
+  commands: 'コマンド',
+  ini: '設定ファイル',
+  operations: 'サーバー操作',
+  schedule: '再起動スケジューラ',
+  logs: 'サーバーログ',
+};
+function setBreadcrumb(tab) {
+  document.getElementById('bc-current').textContent = TAB_LABELS[tab] || tab;
+}
+function navTo(tab) {
+  const btn = document.querySelector('.nav-item[data-tab="' + tab + '"]');
+  if (btn) btn.click();
+}
+document.getElementById('bc-home').addEventListener('click', e => { e.preventDefault(); navTo('dashboard'); });
+
+/* ─── 機能検索（トップナビ） ─────────────────────────────────────── */
+const searchInput = document.getElementById('topnav-search');
+const searchResults = document.getElementById('search-results');
+function renderSearch(q) {
+  clear(searchResults);
+  const ql = q.trim().toLowerCase();
+  if (!ql) { searchResults.classList.remove('open'); return; }
+  const hits = Object.entries(TAB_LABELS).filter(([tab, label]) =>
+    label.toLowerCase().includes(ql) || tab.includes(ql));
+  if (!hits.length) {
+    searchResults.append(el('div', { class: 'sr-empty', text: '一致する機能がありません' }));
+  } else {
+    for (const [tab, label] of hits) {
+      searchResults.append(el('button', { class: 'sr-item', text: label, attrs: { type: 'button' }, on: {
+        click: () => { navTo(tab); searchInput.value = ''; searchResults.classList.remove('open'); },
+      } }));
+    }
+  }
+  searchResults.classList.add('open');
+}
+searchInput.addEventListener('input', e => renderSearch(e.target.value));
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const first = searchResults.querySelector('.sr-item'); if (first) first.click(); }
+  else if (e.key === 'Escape') { searchResults.classList.remove('open'); searchInput.blur(); }
+});
+
+/* 外側クリックでポップオーバーを閉じる */
+document.addEventListener('click', e => {
+  if (!e.target.closest('#topnav-search-wrap')) searchResults.classList.remove('open');
+});
+
+applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+
+/* ─── 初期化 ─────────────────────────────────────────────────────── */
+initApp();
+</script>
+</body>
+</html>

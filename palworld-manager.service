@@ -1,0 +1,29 @@
+[Unit]
+Description=Palworld Server Manager (Web UI)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/palworld-user/palworld-manager/backend
+# main.py の __main__ が APP_PORT（環境変数）を読んで uvicorn を単一ワーカーで起動する。
+# uvicorn を直接呼ぶと APP_PORT が反映されないため、python 経由にしている。
+ExecStart=/home/palworld-user/palworld-manager/backend/.venv/bin/python main.py
+
+# 環境変数は /etc/palworld-manager.env に記載
+EnvironmentFile=/etc/palworld-manager.env
+
+Restart=on-failure
+RestartSec=5
+# 停止時はまずManager本体だけへSIGTERMを送り、更新子はshutdown処理で待つ。
+# 更新最大30分＋REST復旧確認最大3分と終了処理の余裕を確保し、
+# 期限を超えた場合だけcgroup全体をSIGKILLする。
+KillMode=mixed
+TimeoutStopSec=2400
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=palworld-manager
+
+[Install]
+WantedBy=multi-user.target
