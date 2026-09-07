@@ -1,10 +1,14 @@
 # Palworld Server Manager
 
-Palworld 専用のブラウザベース管理 UI です。白基調・緑アクセントのコンソール風デザインで、ライト/ダークテーマを画面右上から切替できます。
+Palworld 専用のブラウザベース管理 UI です。各サーバーに配置して利用します。暗色と緑を基調にしたワークスペースで、監視、設定、コンソール、バックアップをタブで開けます。画面右上からライトテーマにも切り替えられます。
+
+画面刷新に伴う追加機能、バックアップの仕様、検証の範囲は [[WORKSPACE-UPGRADE]] を参照してください。
 
 ## 機能
 
-- **コンソール風 UI** — 濃紺のサイドナビ（選択中の項目は緑のピル表示）が画面左に全高で並び、右側にヘッダー（ハンバーガー・機能検索ボックス・テーマ切替・環境表示）とコンテンツを配置。パンくずリスト、`PAL_ENV` に応じた「検証環境」/「本番環境」の自動切替、ライト/ダークテーマ切替(localStorage に保存)
+- **ワークスペース UI** — 左側のアイコンナビとファイル一覧、上部の画面タブ、サーバー操作ボタンを配置。設定ファイルの複数タブ、未保存表示、キーボード保存、機能検索、環境表示、ライト/ダーク切替に対応。新しいCSSとJavaScriptは `frontend/ui/` から配信する
+- **バックアップ管理** — 設定とセーブデータを選んで作成し、一覧・詳細・収録ファイルを確認。cron式による定期実行と停止中のファイル復元に対応する。復元前退避、チェックサム検証、更新・再起動との排他制御付き。稼働中の作成は保存要求後のコピーであり、全ファイルが同じ時点とは限らない
+- **ファイルエクスプローラー** — 設定領域とセーブ領域を表示。`Engine.ini`、`Game.ini`、`GameUserSettings.ini` はテキスト編集でき、変更前の退避と同時編集の検出を行う。`PalWorldSettings.ini` はパスワードを表示しない既存の専用画面で編集する
 - **スマホ表示** — 画面幅に合わせてカードや入力欄を自動調整。ハンバーガーボタンでメニューを開閉でき、項目選択・背景タップ・Escape で閉じられる
 - **ダッシュボード** — 稼働状況・プレイヤー数・CPU / メモリ / ディスク使用率を KPI カードで表示（リソース 3 枚には推移のスパークライン付き）。プレイヤー数の推移グラフ（期間切替可）、サーバー情報（起動日時・アドレス・プロセス ID・バージョンなど）、イベントログ、クイックアクション、ホスト情報を 1 画面に集約。1 秒自動更新（履歴グラフは 30 秒間隔）
 - **イベントログ** — サーバーログを日時・レベル・カテゴリ・メッセージの表形式で表示し、レベル/カテゴリの絞り込みとメッセージ検索ができる。ログ行の内容から推定して分類するため、時刻情報を持たない行は受信時刻で代用する（その旨をツールチップで補足）
@@ -24,7 +28,7 @@ Palworld 専用のブラウザベース管理 UI です。白基調・緑アク�
 - **環境バナー** — 検証環境（オレンジ）/ 本番環境（赤）を視覚的に識別
 
 > [!note] 今回の対象外
-> プレイヤーのログイン・ログアウトを Discord へ通知する機能と、管理画面からのバックアップ管理機能は実装していません。プレイヤーの参加・退出は Web UI のセッション履歴で確認できます。設定の再読み込みだけを行う機能もありません（INI の変更はサーバー再起動で反映します）。
+> デスクトップアプリ、拡張機能の導入、複数サーバーの一括管理、Minecraft専用機能は対象外です。プレイヤーの参加・退出のDiscord通知や、設定だけを再読み込みする機能もありません。参加・退出はセッション履歴で確認でき、INIの変更はサーバー再起動で反映します。
 
 > [!note] ワールド状況の対応条件
 > Palworld サーバー側が REST API の `/game-data` に対応している必要があります。未対応で 404 が返る場合は、管理画面に「利用できません」と表示し、ほかの機能はそのまま利用できます。座標マップの地形表示には `frontend/assets/` へのマップ画像配置が必要です（「座標マップのマップ画像」参照。未配置でも座標分布の相対表示で動作します）。
@@ -74,6 +78,7 @@ sudo systemctl enable --now palworld-manager
 | `backend/shutdown_schedule.json` | サーバー終了日時の予約（1件のみ） |
 | `backend/manager_history.db*` | メトリクスとプレイヤーセッション履歴の SQLite 本体、WAL、SHM |
 | `backend/.venv/` | systemd サービスが使用する Python 仮想環境 |
+| `backend/backups/` または `PAL_BACKUP_DIR` | ZIPバックアップ、定期予約の `schedule.json`、削除済みバックアップの `trash/` |
 | `frontend/assets/` | 座標マップ用のワールドマップ画像（ユーザー配置。新版には含まれない） |
 | `log/` | 起動ごとのログ |
 | `/etc/palworld-manager.env` | 接続先、管理パスワード、Webhook などの設定 |
@@ -123,6 +128,9 @@ sudo install -o root -g root -m 600 \
 ```bash
 # dry-run
 sudo rsync -ain \
+  --exclude='/backend/backups/' \
+  --exclude='/.preview-data/' \
+  --exclude='/.dev-deps/' \
   --exclude='/backend/.venv/' \
   --exclude='/backend/schedules.json' \
   --exclude='/backend/shutdown_schedule.json' \
@@ -137,6 +145,9 @@ sudo rsync -ain \
 
 # dry-run に問題がなければ更新
 sudo rsync -a \
+  --exclude='/backend/backups/' \
+  --exclude='/.preview-data/' \
+  --exclude='/.dev-deps/' \
   --exclude='/backend/.venv/' \
   --exclude='/backend/schedules.json' \
   --exclude='/backend/shutdown_schedule.json' \
@@ -180,6 +191,8 @@ pytest は必須依存に含まれていないため、直接実行できるテ�
 cd "$app_dir/backend"
 sudo "$app_dir/backend/.venv/bin/python" tests/test_logging_config.py
 sudo "$app_dir/backend/.venv/bin/python" tests/test_frontend_responsive.py
+sudo "$app_dir/backend/.venv/bin/python" tests/test_workspace_files.py
+sudo "$app_dir/backend/.venv/bin/python" -m unittest discover -s tests -p test_workspace_api.py -v
 sudo "$app_dir/backend/.venv/bin/python" tests/test_system_metrics.py
 sudo "$app_dir/backend/.venv/bin/python" tests/test_regressions.py
 sudo "$app_dir/backend/.venv/bin/python" tests/test_shutdown_schedule.py
@@ -233,7 +246,7 @@ sudo install -o palworld-user -g palworld-user -m 755 update.sh /home/palworld-u
 
 ### 関連スクリプト（任意・Web UIからは呼ばれません）
 
-セーブデータのバックアップは Web UI の機能には含まれていません。`cron` などで別途スケジュール実行する運用を想定したサンプルです。
+Web UIのバックアップ画面から作成・予約・復元できます。以下は、別途 `cron` で運用する場合の既存スクリプト例です。Web UIの定期バックアップと併用する場合は、実行時刻と保存先の重複を避けてください。
 
 ```bash
 #!/bin/bash

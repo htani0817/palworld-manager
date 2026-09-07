@@ -20,3 +20,8 @@ palworld-manager.env
 
 # 座標マップ用のワールドマップ画像（ゲーム素材のため再配布しない）
 frontend/assets/
+
+# ローカル検証用の依存・生成データ
+.dev-deps/
+.preview-data/
+backend/backups/

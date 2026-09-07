@@ -18,6 +18,7 @@ SENSITIVE_REQUEST_PATHS = frozenset(
     {
         "/api/maintenance/jobs",
         "/api/system/update",
+        "/api/files/content",
     }
 )
 

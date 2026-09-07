@@ -1,14 +1,16 @@
+# -*- coding: utf-8 -*-
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import palworld_client as pal
 from palworld_client import PalInvalidResponseError
 from ini_editor import mask_secrets
+from operation_guard import exclusive_mutation
 
-router = APIRouter(prefix="/api/server", tags=["server"])
+router = APIRouter(prefix="/api/server", tags=["server"], dependencies=[Depends(exclusive_mutation)])
 
 # Palworld 本体が停止中・起動途中のときに出る通信例外。
 # HTTPStatusError だけを捕捉していると、これらが ASGI 層まで抜けて
