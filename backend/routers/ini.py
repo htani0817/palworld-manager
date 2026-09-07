@@ -1,14 +1,16 @@
+# -*- coding: utf-8 -*-
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import palworld_client as pal
 from ini_editor import mask_secrets, read_ini, secret_key_names, write_ini
+from operation_guard import exclusive_mutation
 
 logger = logging.getLogger("palworld_manager.ini")
 
-router = APIRouter(prefix="/api/ini", tags=["ini"])
+router = APIRouter(prefix="/api/ini", tags=["ini"], dependencies=[Depends(exclusive_mutation)])
 
 
 async def _rest_fallback() -> dict:

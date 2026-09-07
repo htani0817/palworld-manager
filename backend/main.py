@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -34,6 +35,7 @@ from routers import server as server_router
 from routers import shutdown_schedule as shutdown_schedule_router
 from routers import system as system_router
 from routers import world as world_router
+from routers import workspace as workspace_router
 from scheduler import restore_schedules, scheduler
 from sensitive_requests import sensitive_request_validation_exception_handler
 from websocket_log import log_stream
@@ -50,6 +52,7 @@ async def lifespan(app: FastAPI):
     system_metrics.start_sampler()
     scheduler.start()
     restore_schedules()
+    workspace_router.restore_schedule()
     shutdown_scheduler.restore_shutdown_schedule()
     ranking_tracker.load_data()
     scheduler.add_job(
@@ -87,6 +90,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await workspace_router.shutdown()
         await maintenance_coordinator.shutdown()
         await scheduler_service.shutdown_active_restarts()
         scheduler.shutdown(wait=False)
@@ -118,6 +122,7 @@ app.include_router(ranking_router.router)
 app.include_router(world_router.router)
 app.include_router(history_router.router)
 app.include_router(maintenance_router.router)
+app.include_router(workspace_router.router)
 
 
 @app.websocket("/ws/logs")
@@ -127,6 +132,7 @@ async def websocket_logs(websocket: WebSocket):
 
 # マップ画像などの静的アセット配信（check_dir=False で assets/ 未作成でも起動できる）
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR / "assets", check_dir=False), name="static")
+app.mount("/ui", StaticFiles(directory=FRONTEND_DIR / "ui"), name="ui")
 
 
 @app.get("/", response_class=FileResponse)

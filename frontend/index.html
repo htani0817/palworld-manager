@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Palworld Server Manager</title>
-<script>document.documentElement.dataset.theme = localStorage.getItem('pal_theme') || 'light';</script>
+<script>document.documentElement.dataset.theme = localStorage.getItem('pal_theme') || 'dark';</script>
 <style>
 /* ══ デザイントークン（白基調・緑アクセント・濃紺サイドバー） ══════ */
 /* ライト（既定） */
@@ -936,6 +936,7 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 </style>
+<link rel="stylesheet" href="/ui/workspace.css">
 </head>
 <body>
 
@@ -982,6 +983,8 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
         <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         設定ファイル
       </button>
+      <button class="nav-item" data-tab="files" type="button"><svg viewBox="0 0 24 24"><path d="M3 7V4h6l2 3h10v13H3z"/></svg>エクスプローラー</button>
+      <button class="nav-item" data-tab="backups" type="button"><svg viewBox="0 0 24 24"><path d="M3 4h18v5H3zM5 9v11h14V9M9 13h6"/></svg>バックアップ</button>
       <button class="nav-item" data-tab="operations" type="button">
         <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         サーバー操作
@@ -995,6 +998,14 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
         ログ
       </button>
     </nav>
+    <aside id="workspace-explorer" aria-label="ワークスペース">
+      <div class="explorer-heading"><span id="explorer-title">エクスプローラー</span><button type="button" id="explorer-refresh" class="btn-icon" aria-label="ファイル一覧を更新">↻</button></div>
+      <div class="server-tree-name"><span class="dot dot-idle" id="tree-dot"></span><span id="tree-name">PALWORLD SERVER</span></div>
+      <div id="explorer-shortcuts"></div>
+      <div class="explorer-section">サーバーファイル</div>
+      <div id="file-tree" aria-live="polite"><p class="note">ファイルを読み込み中…</p></div>
+      <div class="explorer-footer"><span class="dot dot-idle" id="explorer-dot"></span><span id="explorer-status">接続を確認中</span><small>単一サーバー ワークスペース</small></div>
+    </aside>
     <button id="sidebar-backdrop" type="button" tabindex="-1" aria-label="メニューを閉じる" aria-hidden="true"></button>
 
     <!-- #content-topbar は #content の外に置く。
@@ -1011,6 +1022,9 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
           <div id="search-results"></div>
         </div>
         <div class="topnav-right">
+          <span class="header-status" id="header-status">状態確認中</span>
+          <button type="button" class="btn btn-primary btn-sm" data-svc="start" data-label="起動">▷ 起動</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-svc="stop" data-label="停止">□ 停止</button>
           <button class="topnav-item" id="theme-toggle" type="button" title="テーマ切替" style="padding:5px 8px;">
             <svg class="icon-moon" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
             <svg class="icon-sun" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>
@@ -1020,6 +1034,7 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
         </div>
       </div>
 
+    <div id="workspace-tabs" role="tablist" aria-label="開いている画面"></div>
     <div id="content">
 
       <div id="shutdown-banner" class="hidden"></div>
@@ -1038,6 +1053,12 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
           </div>
         </div>
 
+        <div class="server-hero">
+          <div class="server-emblem" aria-hidden="true">P<span>✦</span></div>
+          <div><div class="server-eyebrow">PALWORLD / DEDICATED SERVER</div><h1 id="workspace-server-name">Palworld Server</h1><div class="server-meta"><span id="workspace-version">バージョンを取得中</span><span id="workspace-address">接続先を取得中</span><span id="workspace-os">ホストを取得中</span></div></div>
+          <button type="button" class="btn btn-ghost btn-sm hero-settings" data-open="ini">設定を開く ↗</button>
+        </div>
+        <div class="resource-tabs" aria-label="サーバー情報の切替"><button class="selected" type="button" data-open="dashboard">リソース</button><button type="button" data-open="players">プレイヤー</button><button type="button" data-open="world">ワールド</button></div>
         <!-- 行1: KPI カード -->
         <div class="kpi-row">
           <div class="card kpi-card">
@@ -1076,6 +1097,10 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
           </div>
         </div>
 
+        <div class="workspace-charts">
+          <div class="card"><div class="card-head"><span class="card-title">CPU 推移</span><span class="chart-key coral">ホスト全体</span></div><svg id="workspace-cpu-chart" class="history-chart" viewBox="0 0 600 190" role="img" aria-label="CPU使用率の履歴"></svg></div>
+          <div class="card"><div class="card-head"><span class="card-title">メモリ推移</span><span class="chart-key">ホスト全体</span></div><svg id="workspace-memory-chart" class="history-chart" viewBox="0 0 600 190" role="img" aria-label="メモリ使用率の履歴"></svg></div>
+        </div>
         <!-- 行2: 推移グラフ + サーバー情報 -->
         <div class="dash-2col">
           <div class="card" style="margin-bottom:0;">
@@ -1386,6 +1411,25 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
         </div>
       </div>
 
+      <div class="tab-panel" id="tab-files">
+        <div class="page-head"><h2>エクスプローラー</h2><span class="note">設定とセーブデータ</span></div>
+        <div class="file-location"><button class="btn btn-ghost btn-sm" type="button" id="files-up">↑ 上へ</button><code id="files-location">config</code><button type="button" class="btn btn-ghost btn-sm" id="files-refresh">更新</button></div>
+        <div class="card file-list-card"><div class="tbl-wrap"><table><thead><tr><th>名前</th><th>サイズ</th><th>更新日時</th><th>種類</th></tr></thead><tbody id="files-tbody"></tbody></table></div></div>
+        <div class="editor-workspace hidden" id="editor-workspace">
+          <div class="editor-tabs" id="editor-tabs" role="tablist" aria-label="開いている設定ファイル"></div>
+          <div class="editor-toolbar"><code id="editor-path"></code><span id="editor-state" aria-live="polite"></span><button type="button" class="btn btn-ghost btn-sm" id="editor-reload">再読込</button><button type="button" class="btn btn-primary btn-sm" id="editor-save" disabled>変更を保存</button></div>
+          <div class="code-editor"><pre id="editor-lines" aria-hidden="true">1</pre><textarea id="editor-content" aria-label="設定ファイルの内容" spellcheck="false" wrap="off"></textarea></div>
+          <div class="editor-footer"><span>UTF-8 · INI</span><span>Ctrl / ⌘ + S で保存</span><span>変更はサーバー再起動で反映</span></div>
+        </div>
+        <p class="note" id="files-note">設定ファイルを開くと編集できます。セーブデータは一覧表示とバックアップに対応しています。</p>
+      </div>
+
+      <div class="tab-panel" id="tab-backups">
+        <div class="page-head"><h2>バックアップ</h2><div class="right"><button type="button" class="btn btn-ghost btn-sm" id="backup-refresh">更新</button><button type="button" class="btn btn-primary btn-sm" id="backup-new">＋ バックアップを作成</button></div></div>
+        <div class="backup-job hidden" id="backup-job" role="status"></div>
+        <div class="backup-workspace"><div class="backup-list" id="backup-list"></div><div class="card backup-detail" id="backup-detail"><div class="empty-state"><span class="empty-symbol">▤</span><h3>大切なワールドを、いつでも戻せるように。</h3><p>バックアップを選ぶと、作成日時や含まれるファイルを確認できます。</p></div></div></div>
+        <details class="card backup-schedule" open><summary>定期バックアップ</summary><p class="note">指定したタイムゾーンで実行します。ほかのメンテナンスと重なる場合はスキップします。</p><form id="backup-schedule-form"><label class="check-label"><input type="checkbox" id="backup-schedule-enabled">定期バックアップを有効にする</label><div class="schedule-fields"><label>実行タイミング<select class="input" id="backup-frequency"><option value="0 3 * * *">毎日 03:00</option><option value="0 */6 * * *">6時間ごと</option><option value="0 * * * *">毎時 00分</option><option value="custom">cron式を指定</option></select></label><label>cron式<input class="input" id="backup-cron" value="0 3 * * *" required maxlength="80"></label><label>対象<select class="input" id="backup-schedule-scope"><option value="all">設定＋セーブデータ</option><option value="saves">セーブデータ</option><option value="config">設定ファイル</option></select></label><button type="submit" class="btn btn-ghost">予約を保存</button></div></form><p class="note" id="backup-next">予約を取得中…</p></details>
+      </div>
       <!-- サーバー操作 -->
       <div class="tab-panel" id="tab-operations">
         <div class="page-head"><h2>サーバー操作</h2></div>
@@ -1595,7 +1639,8 @@ label.check-label { display: flex; align-items: center; gap: 6px; font-size: 13p
   </div>
 </div>
 
-<div id="toast-wrap"></div>
+<div class="overlay hidden" id="backup-modal"><form class="modal" id="backup-form" role="dialog" aria-modal="true" aria-labelledby="backup-title"><h3 id="backup-title">バックアップを作成</h3><label class="field">名前<input class="input input-full" id="backup-label" required maxlength="80" placeholder="例：アップデート前"></label><label class="field">説明<textarea class="input input-full" id="backup-description" maxlength="500" rows="2" placeholder="このバックアップについて"></textarea></label><label class="field">対象<select class="input input-full" id="backup-scope"><option value="all">設定＋セーブデータ</option><option value="saves">セーブデータのみ</option><option value="config">設定ファイルのみ</option><option value="custom">ファイル・フォルダを指定</option></select></label><label class="field hidden" id="backup-paths-field">相対パス（1行に1件）<textarea class="input input-full" id="backup-paths" rows="3" placeholder="saves/0/ワールドID&#10;config/Engine.ini"></textarea></label><p class="note">稼働中はワールド保存後にコピーします。時点をそろえたバックアップはサーバー停止中に作成してください。</p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="backup-cancel">キャンセル</button><button type="submit" class="btn btn-primary" id="backup-submit">作成する</button></div></form></div>
+<div id="toast-wrap" role="status" aria-live="polite"></div>
 
 <script>
 "use strict";
@@ -1695,7 +1740,7 @@ async function loadEnvInfo() {
   document.title = d.label + ' Palworld Manager';
   const regionItem = document.getElementById('region-item');
   if (regionItem) {
-    const regionLabel = d.is_production ? '本番環境' : '検証環境';
+    const regionLabel = d.env === 'preview' ? 'プレビュー' : d.is_production ? '本番環境' : '検証環境';
     regionItem.title = d.env;
     regionItem.firstChild.nodeValue = regionLabel;
   }
@@ -1766,6 +1811,8 @@ function renderSidebarState({ focusSidebar = false, focusToggle = false } = {}) 
   // モバイルでドロワーが開いているとき #content-topbar も inert にする。
   // 閉じる経路はサイドバー内の #sidebar-close ボタンで提供するため操作不能にしても問題ない。
   contentTopbar.toggleAttribute('inert', mobile && open);
+  document.getElementById('workspace-tabs').toggleAttribute('inert', mobile && open);
+  document.querySelector('.workspace-footer')?.toggleAttribute('inert', mobile && open);
   // 背景はポインター操作専用。閉じる操作は #sidebar-close と Escape からも行える。
   sidebarBackdrop.setAttribute('aria-hidden', 'true');
 
@@ -1844,6 +1891,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.add('active');
     btn.setAttribute('aria-current', 'page');
     const tab = btn.dataset.tab;
+    if (typeof workspaceNavigate === 'function') workspaceNavigate(tab);
     document.getElementById('tab-' + tab).classList.add('active');
     setBreadcrumb(tab);
     hideChartHover();  // タブ切替時にタッチ操作で残ったツールチップを消す
@@ -1878,6 +1926,7 @@ function startRefresh() {
     else if (tab === 'world' && (Date.now() - lastWorldAt) >= WORLD_REFRESH_MS) loadWorld();
     else if (tab === 'history' && (Date.now() - lastHistoryAt) >= HISTORY_REFRESH_MS) loadHistory();
     else if (tab === 'operations') { loadMaintenanceStatus(); loadShutdownScheduleCard(); }
+    if (tab !== 'dashboard' && Date.now() - workspaceStatusAt > 5000) loadDashboard();
     if (tab !== 'operations' && (Date.now() - lastMaintenanceAt) >= MAINTENANCE_REFRESH_MS) {
       loadMaintenanceStatus();
     }
@@ -1899,11 +1948,12 @@ async function loadDashboard() {
       api('GET', '/api/system/metrics').catch(() => null),
       api('GET', '/api/system/service-status').catch(() => null),
     ]);
+    if (typeof updateWorkspaceStatus === 'function') updateWorkspaceStatus({info, sys, svc});
     if (svc) {
       const dot = document.getElementById('svc-dot');
       const lbl = document.getElementById('svc-label');
       /* running は true / false / null の 3 値。null は「停止」ではなく状態不明。 */
-      if (svc.query_ok === false || svc.running === null) {
+      if (svc.query_ok === false || svc.running === null || !['active', 'inactive', 'failed'].includes(svc.status)) {
         dot.className = 'dot dot-idle';
         lbl.className = 'kpi-value unknown';
         lbl.textContent = '状態不明';
@@ -2594,6 +2644,7 @@ function renderSparkline(id, rows, keys, options = {}) {
 
 /* ダッシュボードの推移グラフとスパークラインをまとめて描く。 */
 function renderDashboardCharts(rows) {
+  if (typeof renderWorkspaceCharts === 'function') renderWorkspaceCharts(rows);
   renderLineChart('dash-chart-players', rows,
     [{ keys: PLAYER_SERIES_KEYS, color: themeColor('--chart-1', '#16a34a'), label: '人', digits: 0 }],
     { floor: 0 });
@@ -3661,7 +3712,9 @@ const TAB_LABELS = {
   ini: '設定ファイル',
   operations: 'サーバー操作',
   schedule: '再起動スケジューラ',
-  logs: 'サーバーログ',
+  logs: 'コンソール',
+  files: 'エクスプローラー',
+  backups: 'バックアップ',
 };
 function setBreadcrumb(tab) {
   document.getElementById('bc-current').textContent = TAB_LABELS[tab] || tab;
@@ -3703,10 +3756,11 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#topnav-search-wrap')) searchResults.classList.remove('open');
 });
 
-applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
 
 /* ─── 初期化 ─────────────────────────────────────────────────────── */
-initApp();
+document.addEventListener('DOMContentLoaded', () => { initWorkspace(); initApp(); });
 </script>
+<script src="/ui/workspace.js"></script>
 </body>
 </html>
